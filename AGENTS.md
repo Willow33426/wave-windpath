@@ -24,6 +24,7 @@
 - 앱 의존성은 최상위 `requirements.txt`에서 관리한다. `deploy/requirements.txt`는 `-r ../requirements.txt`로 앱 의존성을 포함하고 운영 의존성만 추가한다. 배포 시 최상위 `requirements.txt`도 `WORK_PATH`에 전송한다.
 - 프론트엔드는 빌드한 정적 파일을 FastAPI가 서빙해 포트 하나로 운영한다.
 - 수집한 원본 데이터 캐시는 `data/`에 두고 Git에 커밋하지 않는다.
+- 대회 서버는 팀별 메모리 1.2GB, 프로세스 2개 한도다. 프로세스는 Supervisor와 앱(uvicorn 워커 1개)만 두고, 데이터 수집은 앱 안의 스케줄러로 돌린다. LLM은 외부 API로 호출하고 서버에서 모델을 학습하지 않는다.
 
 ## 협업
 
