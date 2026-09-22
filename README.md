@@ -97,23 +97,37 @@ deploy/
   .env.example         # 서버 접속·배포 설정 예시
 AGENTS.md              # 팀원과 AI 코딩 도구가 함께 따르는 작업 규칙
 CLAUDE.md              # Claude Code용 안내 (AGENTS.md를 불러옴)
+THIRD_PARTY_NOTICES.md # 가져다 쓴 오픈소스의 저작권·라이선스 고지
 ```
 
 실제 설정은 `app/.env`와 `deploy/.env`에 두며 Git에 커밋하지 않습니다.
 
 ## 로컬 실행
 
-프로젝트 루트에서 실행합니다.
+내 컴퓨터에서 서버를 띄워 보는 방법입니다. 저장소 폴더에서 위부터 차례로 실행합니다.
+
+**Windows (PowerShell)**
+
+```powershell
+python -m venv .venv                  # 가상환경 만들기 (처음 한 번)
+.venv\Scripts\Activate.ps1            # 가상환경 켜기
+pip install -r requirements.txt       # 필요한 패키지 설치
+copy app\.env.example app\.env        # 설정 파일 만들기 (처음 한 번)
+python app\main.py                    # 서버 실행
+```
+
+**macOS·Linux**
 
 ```sh
-python -m venv .venv
-source .venv/bin/activate        # Windows: .venv\Scripts\activate
+python3 -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
-cp app/.env.example app/.env     # Windows: copy app\.env.example app\.env
+cp app/.env.example app/.env
 python app/main.py
 ```
 
-기본 주소는 <http://127.0.0.1:8000/> 입니다.
+브라우저에서 <http://127.0.0.1:8000/> 을 엽니다. 끝낼 때는 터미널에서 `Ctrl+C`를 누릅니다.
+PowerShell에서 `Activate.ps1` 실행이 막히면 `Set-ExecutionPolicy -Scope Process RemoteSigned`를 먼저 실행합니다 (현재 창에만 적용).
 
 ## 배포
 
@@ -201,6 +215,6 @@ chmod 600 app/.env
 ## 출처와 라이선스
 
 - 코드: [MIT](LICENSE)
-- 배포 구조, 배포 절차, 작업 규칙: 강사 예제 [charsyam/scnu-oss-advanced-track-example](https://github.com/charsyam/scnu-oss-advanced-track-example) (MIT)
+- 배포 구조, 배포 절차, 작업 규칙: 사전교육 3교시(서버 설정)에서 제공된 강사 예제 [charsyam/scnu-oss-advanced-track-example](https://github.com/charsyam/scnu-oss-advanced-track-example) (MIT). 원본 저작권·라이선스 고지는 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)에 있습니다.
 - 데이터: 기상청, 한국환경공단(에어코리아). 공공데이터포털 이용 조건을 따르며, 데이터별 이용허락 범위는 최종 제출 때 기재합니다.
 - 사용한 오픈소스 목록과 라이선스는 최종 제출 때 정리합니다.
