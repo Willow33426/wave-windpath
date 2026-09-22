@@ -1,0 +1,34 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+dist/
+
+# 환경 설정 (커밋 금지, .env.example만 허용)
+.env
+.env.*
+*.env
+env
+!.env.example
+!**/.env.example
+
+# 운영 로그·데이터 캐시
+deploy/.run/
+data/
+*.log
+*.sqlite3
+*.db
+
+# OS·편집기
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
