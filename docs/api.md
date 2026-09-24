@@ -61,14 +61,16 @@ GET /api/citizen/forecast?location=suncheon&hours=12
 |---|---|---|---|
 | `location` | object | X | `id`, `name`, `lat`, `lon`, `air_station`, `weather_station` |
 | `updated_at` | datetime | X | 응답을 만든 시각 |
-| `observed_at` | datetime | O | `current` 값의 관측 시각 |
+| `observed_at` | datetime | O | `current` 입력 중 가장 최근 관측 시각. 소스별 시각은 `data_sources[].observed_at` 참조 |
 | `is_fallback` | boolean | X | 캐시·fixture로 응답했는지 |
-| `data_sources` | array | X | `{name, provider, fetched_at, note}` 목록. 화면 하단 출처 표기에 사용 |
+| `data_sources` | array | X | `{name, provider, observed_at, fetched_at, note}` 목록. 화면 하단 출처와 소스별 관측 시각 표기에 사용 |
 | `current` | object | O | 현재 상태. 관측이 없으면 `null` |
 | `forecast` | array | X | 시간별 예측. 길이는 요청 `hours` 이하 |
 | `recommendation` | object | X | 환기·외출 권고 |
 | `reason` | string | O | 판단 근거 한 문장. AI 브리핑(#4)이 이 값을 대체할 수 있다 |
 | `model` | object | X | 예측에 사용한 모델 정보 |
+
+대기질과 기상 관측은 갱신 주기가 다를 수 있다. `observed_at` 하나로 두 자료가 같은 시각이라고 가정하지 말고, 화면과 계산에서는 반드시 각 `data_sources[].observed_at`을 함께 확인한다.
 
 `current` 객체
 
