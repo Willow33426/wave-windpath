@@ -157,5 +157,58 @@ class EvaluateScriptTest(unittest.TestCase):
         self.assertTrue(all(v is None or v >= 0 for v in result["overall"].values()))
 
 
+class ContractShapeTest(unittest.TestCase):
+    """폴백이든 아니든 forecast[] 항목 구조가 같아야 한다."""
+
+    KEYS = ("forecast_time", "pm25_predicted", "air_quality", "confidence",
+            "industrial_influence", "model")
+
+    def test_persistence_items_carry_influence_block(self):
+        items = persistence_forecast(history([18, 20, 23]), hours=3)
+        for key in self.KEYS:
+            self.assertIn(key, items[0])
+        self.assertEqual(items[0]["industrial_influence"]["level"], "unknown")
+        self.assertIsNone(items[0]["industrial_influence"]["score"])
+
+    def test_fallback_path_of_predict_keeps_same_keys(self):
+        items = predict({"target_history": history([20, 22, 24])})
+        self.assertEqual(items[0]["model"], "baseline-persistence")
+        for key in self.KEYS:
+            self.assertIn(key, items[0])
+
+
+class WeakWindTest(unittest.TestCase):
+    """풍속을 모르면 도달했다고 보지 않는다."""
+
+    def test_no_correction_without_usable_wind_speed(self):
+        for speed in (None, 0.0, 0.3):
+            with self.subTest(speed=speed):
+                items = wind_rule_forecast(history([20, 20]), history([60, 60]),
+                                           weather(101, speed), hours=6,
+                                           facilities=(GWANGYANG,), start=T0)
+                self.assertTrue(all(i["pm25_predicted"] == 20.0 for i in items),
+                                "바람이 없는데 농도를 올리면 안 된다")
+
+    def test_usable_wind_still_corrects(self):
+        items = wind_rule_forecast(history([20, 20]), history([60, 60]),
+                                   weather(101, 4.0), hours=6,
+                                   facilities=(GWANGYANG,), start=T0)
+        self.assertGreater(items[-1]["pm25_predicted"], 20.0)
+
+
+class WeatherGapTest(unittest.TestCase):
+    """예보가 비는 시각은 persistence로 표시한다."""
+
+    def test_missing_hours_are_labelled_persistence(self):
+        partial = weather(101, 4.0, hours=3)          # 12시간 중 앞 3시간만 있다
+        items = wind_rule_forecast(history([20, 20]), history([60, 60]), partial,
+                                   hours=12, facilities=(GWANGYANG,), start=T0)
+        covered, gaps = items[:3], items[3:]
+        self.assertTrue(all(i["model"] == "baseline-wind-rule" for i in covered))
+        self.assertTrue(all(i["model"] == "baseline-persistence" for i in gaps))
+        self.assertTrue(all(i["pm25_predicted"] == 20.0 for i in gaps))
+        self.assertLess(gaps[0]["confidence"], covered[-1]["confidence"])
+
+
 if __name__ == "__main__":
     unittest.main()

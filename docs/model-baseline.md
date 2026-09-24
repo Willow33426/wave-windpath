@@ -22,6 +22,8 @@
 - 영향점수: 풍향이 시설 방위 ±25° 안일 때 1에 가깝고, 벗어날수록 0. 풍속 3 m/s 이상이면 최대
 - 감쇠: `exp(-h/8)` — 먼 시간일수록 보정을 줄인다
 - 도달 시간: `거리 ÷ 풍속`보다 이른 시각에는 보정하지 않는다 (24 km·3 m/s → 약 2.2시간)
+- 풍속이 없거나 0.3 m/s 이하이면 도달 시간을 계산할 수 없으므로 보정하지 않는다
+- 예보가 비는 시각은 보정하지 않고 `baseline-persistence`로 표시한다 (신뢰도도 낮춘다)
 - 상류 농도가 우리 동네보다 낮으면 보정하지 않는다 (예측을 낮추지 않는다)
 
 시설 방위는 순천 시청 기준이며 `docs/api.md`와 같은 값을 쓴다.
@@ -71,18 +73,28 @@ time,pm25,upwind_pm25,wind_direction,wind_speed
 - `upwind_pm25`: 광양·여수 등 상류 측정값
 - `wind_direction`: 바람이 불어오는 방향(도), `wind_speed`: m/s
 
-출력 예시 (가상 자료 336행으로 확인한 동작 예시이며 실제 성능이 아님)
+자료가 아직 없으면 동작 확인용 가상 자료를 만들 수 있다. 같은 seed면 같은 파일이 나온다.
+
+```sh
+python scripts/make_demo_history.py data/demo_history.csv
+python scripts/evaluate_baseline.py data/demo_history.csv
+```
+
+출력 예시 (**위 가상 자료 336행의 결과이며 실제 성능이 아니다**)
 
 ```text
    예측 시간  persistence  wind_rule
-     1h         1.75       1.75
-     6h         4.35       4.19
-    12h         5.42       5.21
+     1h         1.33       1.33
+     6h         2.67       2.49
+    12h         2.58       2.54
 
 전체 MAE (㎍/㎥)
-  baseline-persistence   4.11
-  baseline-wind-rule     3.97
+  baseline-persistence   2.41
+  baseline-wind-rule     2.31
 ```
+
+가상 자료는 "산단 방향 바람일 때 상류 농도를 따라간다"는 가정을 넣어 만든 것이므로,
+wind_rule이 이기는 것은 당연하다. **실측 자료에서도 이긴다는 증거가 아니다.**
 
 학습 모델(#3)은 **같은 CSV, 같은 `--split`** 으로 비교해야 조건이 같다.
 

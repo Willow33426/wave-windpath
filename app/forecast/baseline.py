@@ -120,6 +120,14 @@ def _grade(pm25: float | None) -> str | None:
     return "매우나쁨"
 
 
+def _influence(score: float | None, matched: list[str]) -> dict:
+    """forecast[] 항목의 공통 구조. 판단 근거가 없으면 unknown으로 채운다."""
+    if score is None:
+        return {"level": "unknown", "score": None, "upwind_facilities": matched}
+    level = "high" if score >= 0.6 else "medium" if score >= 0.3 else "low" if matched else "unknown"
+    return {"level": level, "score": score, "upwind_facilities": matched}
+
+
 def _hours(start: datetime, hours: int) -> list[datetime]:
     first = (start + timedelta(hours=1)).replace(minute=0, second=0, microsecond=0)
     return [first + timedelta(hours=i) for i in range(hours)]
@@ -139,6 +147,7 @@ def persistence_forecast(target_history: list[Observation], hours: int = 12,
             "pm25_predicted": None if last is None else round(last, 1),
             "air_quality": _grade(last),
             "confidence": None if last is None else round(max(0.25, 0.6 - 0.03 * i), 2),
+            "industrial_influence": _influence(None, []),
             "model": MODEL_NAME_PERSISTENCE,
         })
     return result
@@ -167,21 +176,20 @@ def wind_rule_forecast(target_history: list[Observation], upwind_history: list[O
         value = base
         if base is not None and upwind is not None and score > 0 and upwind > base:
             lag = transport_hours(min(f.distance_km for f in facilities), point.wind_speed if point else None)
-            arrived = lag is None or (i + 1) >= lag                  # 도달 시간 전에는 보정하지 않는다
+            # 바람이 없거나 너무 약하면 도달 시간을 알 수 없다. 모르는 것을 도달로 보지 않는다.
+            arrived = lag is not None and (i + 1) >= lag               # 도달 시간 전에는 보정하지 않는다
             decay = math.exp(-(i + 1) / DEFAULT_DECAY_HOURS)          # 멀어질수록 보정 축소
             if arrived:
                 value = base + alpha * score * decay * (upwind - base)
+        # 예보가 비는 시각은 사실상 persistence다. 이름과 신뢰도를 낮춰 표시한다.
+        ceiling, floor = (0.7, 0.3) if point else (0.6, 0.25)
         result.append({
             "forecast_time": t.isoformat(),
             "pm25_predicted": None if value is None else round(value, 1),
             "air_quality": _grade(value),
-            "confidence": None if value is None else round(max(0.3, 0.7 - 0.03 * i), 2),
-            "industrial_influence": {
-                "level": "high" if score >= 0.6 else "medium" if score >= 0.3 else "low" if matched else "unknown",
-                "score": score if point else None,
-                "upwind_facilities": matched,
-            },
-            "model": MODEL_NAME_WIND_RULE,
+            "confidence": None if value is None else round(max(floor, ceiling - 0.03 * i), 2),
+            "industrial_influence": _influence(score if point else None, matched),
+            "model": MODEL_NAME_WIND_RULE if point else MODEL_NAME_PERSISTENCE,
         })
     return result
 
