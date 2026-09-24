@@ -131,7 +131,7 @@ PowerShell에서 `Activate.ps1` 실행이 막히면 `Set-ExecutionPolicy -Scope 
 
 ## 배포
 
-강사 예제의 배포 절차를 팀 a8 기준으로 옮겼습니다. 비밀번호는 명령행·로그·채팅에 남기지 않습니다.
+예제 저장소의 배포 절차를 팀 a8 기준으로 옮겼습니다. 비밀번호는 명령행·로그·채팅에 남기지 않습니다.
 
 ### 1. 배포 설정 (로컬)
 
@@ -215,6 +215,6 @@ chmod 600 app/.env
 ## 출처와 라이선스
 
 - 코드: [MIT](LICENSE)
-- 배포 구조, 배포 절차, 작업 규칙: 사전교육 3교시(서버 설정)에서 제공된 강사 예제 [charsyam/scnu-oss-advanced-track-example](https://github.com/charsyam/scnu-oss-advanced-track-example) (MIT). 원본 저작권·라이선스 고지는 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)에 있습니다.
+- 배포 구조, 배포 절차, 작업 규칙: 사전교육 3교시(서버 설정)에서 제공된 예제 [charsyam/scnu-oss-advanced-track-example](https://github.com/charsyam/scnu-oss-advanced-track-example) (MIT). 원본 저작권·라이선스 고지는 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)에 있습니다.
 - 데이터: 기상청, 한국환경공단(에어코리아). 공공데이터포털 이용 조건을 따르며, 데이터별 이용허락 범위는 최종 제출 때 기재합니다.
 - 사용한 오픈소스 목록과 라이선스는 최종 제출 때 정리합니다.

@@ -1,6 +1,6 @@
 # 저장소 작업 규칙
 
-팀원과 AI 코딩 도구(Codex, Claude Code 등)가 함께 따르는 규칙이다. 보안·배포 규칙은 강사 예제 저장소 [charsyam/scnu-oss-advanced-track-example](https://github.com/charsyam/scnu-oss-advanced-track-example) (MIT)를 따른다.
+팀원과 AI 코딩 도구(Codex, Claude Code 등)가 함께 따르는 규칙이다. 보안·배포 규칙은 예제 저장소 [charsyam/scnu-oss-advanced-track-example](https://github.com/charsyam/scnu-oss-advanced-track-example) (MIT)를 따른다.
 
 ## 보안
 
