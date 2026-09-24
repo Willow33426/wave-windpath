@@ -53,25 +53,38 @@ items = predict({
 
 ## 3. 평가 방법
 
-시간 순서를 지키는 rolling-origin 방식이다. 각 기준 시각에서 **그 시각까지의 관측만** 써서
-12시간을 예측하고, 실제값과 비교해 MAE(평균절대오차)를 낸다. 미래 정보 누수가 없다.
+시간 순서를 지키는 rolling-origin 방식이다. 각 기준 시각에서 **그 시각까지의 관측과 그때 이미
+발행된 기상 예보만** 써서 12시간을 예측하고, 실제값과 비교해 MAE(평균절대오차)를 낸다.
 
 ```sh
-python scripts/evaluate_baseline.py data/history.csv --hours 12 --split 0.8
-python scripts/evaluate_baseline.py data/history.csv --json data/baseline_mae.json
+python scripts/evaluate_baseline.py data/history.csv \
+  --weather-forecast data/weather_forecast.csv --hours 12 --split 0.8
+python scripts/evaluate_baseline.py data/history.csv \
+  --weather-forecast data/weather_forecast.csv --json data/baseline_mae.json
 ```
 
 입력 CSV (1시간 간격, 시간 오름차순)
 
 ```csv
-time,pm25,upwind_pm25,wind_direction,wind_speed
-2026-09-01T00:00:00+09:00,18,22,110,3.1
+time,pm25,upwind_pm25
+2026-09-01T00:00:00+09:00,18,22
 ```
 
 - `time`: ISO 8601 (KST)
 - `pm25`: 순천 측정값 ㎍/㎥
 - `upwind_pm25`: 광양·여수 등 상류 측정값
-- `wind_direction`: 바람이 불어오는 방향(도), `wind_speed`: m/s
+
+보관된 기상 예보 CSV는 **예보 발행 시각과 목표 시각을 모두** 포함해야 한다.
+
+```csv
+issued_at,target_time,wind_direction,wind_speed
+2026-09-01T00:00:00+09:00,2026-09-01T01:00:00+09:00,110,3.1
+```
+
+- `issued_at`: 해당 예보를 실제로 알 수 있었던 발행 시각
+- `target_time`: 예보 대상 시각
+- 같은 목표 시각의 예보가 여러 개면 평가 기준 시각 이전에 발행된 최신본을 사용한다.
+- 보관된 예보가 없으면 미래 관측 풍향을 대신 쓰지 않고 `wind_rule`도 persistence로 평가한다.
 
 자료가 아직 없으면 동작 확인용 가상 자료를 만들 수 있다. 같은 seed면 같은 파일이 나온다.
 
@@ -80,28 +93,15 @@ python scripts/make_demo_history.py data/demo_history.csv
 python scripts/evaluate_baseline.py data/demo_history.csv
 ```
 
-출력 예시 (**위 가상 자료 336행의 결과이며 실제 성능이 아니다**)
-
-```text
-   예측 시간  persistence  wind_rule
-     1h         1.33       1.33
-     6h         2.67       2.49
-    12h         2.58       2.54
-
-전체 MAE (㎍/㎥)
-  baseline-persistence   2.41
-  baseline-wind-rule     2.31
-```
-
-가상 자료는 "산단 방향 바람일 때 상류 농도를 따라간다"는 가정을 넣어 만든 것이므로,
-wind_rule이 이기는 것은 당연하다. **실측 자료에서도 이긴다는 증거가 아니다.**
+이 명령은 평가 코드의 동작만 확인한다. 가상 자료에는 발행 이력이 있는 예보가 없으므로 두
+기준선의 결과가 같아진다. `wind_rule` 성능 비교는 실제 보관 예보를 함께 제공한 뒤에만 한다.
 
 학습 모델(#3)은 **같은 CSV, 같은 `--split`** 으로 비교해야 조건이 같다.
 
 ## 4. 한계
 
 - 통계 규칙이라 특정 시설의 기여를 증명하지 않는다. 화면에는 "영향 가능성"으로만 표기한다.
-- 평가에서는 예보값 대신 실제 관측 기상값을 입력으로 쓴다. 실제 운영에서는 예보 오차가 더해진다.
+- 과거 시점에 발행된 예보를 보관하지 않았다면 `wind_rule`의 과거 성능을 소급 평가할 수 없다.
 - 상류 측정소가 한 곳뿐이면 다른 오염원(외부 유입, 도로)의 영향을 구분하지 못한다.
 - 결측이 많은 구간은 평가에서 제외되므로, 기간별 표본 수(`origins`)를 함께 봐야 한다.
 

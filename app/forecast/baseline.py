@@ -11,6 +11,7 @@ wind_rule은 인과 모형이 아니라 풍향·관측값으로 만든 참고 �
 """
 from __future__ import annotations
 
+import logging
 import math
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -22,6 +23,7 @@ VERSION = "0.1.0"
 DEFAULT_TOLERANCE_DEG = 25.0   # 시설 방위 ±25도면 "산단 쪽 바람"
 DEFAULT_ALPHA = 0.6            # 상류 농도를 반영하는 최대 비율
 DEFAULT_DECAY_HOURS = 8.0      # 예측이 멀어질수록 보정을 줄인다
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -217,6 +219,7 @@ def predict(features: dict, hours: int = 12) -> list[dict]:
     try:
         return wind_rule_forecast(target_history, upwind_history, weather, hours, facilities)
     except Exception:  # noqa: BLE001 - 예측 실패로 서비스가 죽으면 안 된다
+        logger.exception("풍향 규칙 예측 실패; persistence 기준선으로 폴백합니다")
         return persistence_forecast(target_history, hours)
 
 

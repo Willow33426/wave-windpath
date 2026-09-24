@@ -48,6 +48,7 @@ class Record:
     metric: str
     value: float
     unit: str
+    data_origin: str = "live"  # "live" | "fixture"
 
     def as_dict(self) -> dict:
         d = asdict(self)
