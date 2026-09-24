@@ -75,7 +75,7 @@ GET /api/citizen/forecast?location=suncheon&hours=12
 | 필드 | 타입 | null | 설명 |
 |---|---|---|---|
 | `pm25`, `pm10` | number | O | 관측 농도 ㎍/㎥ |
-| `air_quality` | string | O | `좋음` \| `보통` \| `나쁨` \| `매우나쁨` (PM2.5 기준 0–15 / 16–35 / 36–75 / 76–) |
+| `air_quality` | string | O | `좋음` \| `보통` \| `나쁨` \| `매우나쁨` (PM2.5 기준 `≤15` / `≤35` / `≤75` / `>75`. 예측값은 소수가 나오므로 구간이 아니라 부등호로 정한다) |
 | `wind_direction` | int | O | 0~359 |
 | `wind_direction_label` | string | O | `남남서` 같은 16방위 한글 표기 |
 | `wind_speed_mps` | number | O | |
@@ -123,6 +123,11 @@ GET /api/citizen/forecast?location=suncheon&hours=12
 
 외부 API 장애나 키 미발급 상태에서도 화면이 뜨도록 fixture로 응답한다.
 `is_fallback: true`, `confidence: null`, `data_sources[].note`에 폴백 사유를 적는다.
+
+> **주의**: mock 파일의 시각을 그대로 내보내면 안 된다. `updated_at`·`observed_at`·
+> `forecast[].forecast_time`과 "몇 시간 전" 같은 문구는 **응답을 만드는 시각 기준으로 다시
+> 계산**한다. 고정 시각을 그대로 쓰면 며칠 뒤에는 오래된 값이 방금 것처럼 보인다.
+> 서버는 `app/collector.py`의 `_rebase()`가 같은 일을 한다.
 
 [`docs/mock/citizen_forecast_fallback.json`](mock/citizen_forecast_fallback.json)
 
