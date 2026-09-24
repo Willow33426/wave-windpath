@@ -17,6 +17,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import math
 import statistics
 import sys
 from datetime import datetime
@@ -39,9 +40,10 @@ def _float(value: str | None) -> float | None:
     if value is None or str(value).strip() == "":
         return None
     try:
-        return float(value)
+        parsed = float(value)
     except ValueError:
         return None
+    return parsed if math.isfinite(parsed) else None
 
 
 def load_rows(path: Path) -> list[dict]:
