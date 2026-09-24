@@ -1,0 +1,284 @@
+{
+  "location": {
+    "id": "suncheon",
+    "name": "순천시",
+    "lat": 34.9506,
+    "lon": 127.4872,
+    "air_station": "순천 연향동",
+    "weather_station": "순천(ASOS 174)"
+  },
+  "updated_at": "2026-09-24T15:20:00+09:00",
+  "observed_at": "2026-09-24T15:00:00+09:00",
+  "is_fallback": false,
+  "data_sources": [
+    {
+      "name": "단기예보 조회서비스",
+      "provider": "기상청",
+      "fetched_at": "2026-09-24T15:18:00+09:00",
+      "note": null
+    },
+    {
+      "name": "대기오염정보 조회서비스",
+      "provider": "한국환경공단 에어코리아",
+      "fetched_at": "2026-09-24T15:19:00+09:00",
+      "note": null
+    }
+  ],
+  "current": {
+    "pm25": 23,
+    "pm10": 38,
+    "air_quality": "보통",
+    "wind_direction": 115,
+    "wind_direction_label": "동남동",
+    "wind_speed_mps": 3.4,
+    "temperature_c": 24.6,
+    "industrial_influence": {
+      "level": "medium",
+      "score": 0.58,
+      "upwind_facilities": [
+        "광양제철소",
+        "여수국가산단"
+      ],
+      "note": "동남동풍 3.4 m/s. 바람이 불어오는 쪽 광양 태인동 측정소 PM2.5가 41 ㎍/㎥입니다."
+    }
+  },
+  "forecast": [
+    {
+      "forecast_time": "2026-09-24T16:00:00+09:00",
+      "pm25_predicted": 26,
+      "air_quality": "보통",
+      "wind_direction": 115,
+      "wind_direction_label": "동남동",
+      "wind_speed_mps": 3.4,
+      "industrial_influence": {
+        "level": "medium",
+        "score": 0.6,
+        "upwind_facilities": [
+          "광양제철소",
+          "여수국가산단"
+        ],
+        "note": "동남동풍이라 광양·여수 산단 쪽에서 바람이 옵니다."
+      },
+      "confidence": 0.78,
+      "is_fallback": false
+    },
+    {
+      "forecast_time": "2026-09-24T17:00:00+09:00",
+      "pm25_predicted": 29,
+      "air_quality": "보통",
+      "wind_direction": 112,
+      "wind_direction_label": "동남동",
+      "wind_speed_mps": 3.2,
+      "industrial_influence": {
+        "level": "medium",
+        "score": 0.6,
+        "upwind_facilities": [
+          "광양제철소",
+          "여수국가산단"
+        ],
+        "note": "동남동풍이라 광양·여수 산단 쪽에서 바람이 옵니다."
+      },
+      "confidence": 0.76,
+      "is_fallback": false
+    },
+    {
+      "forecast_time": "2026-09-24T18:00:00+09:00",
+      "pm25_predicted": 31,
+      "air_quality": "보통",
+      "wind_direction": 110,
+      "wind_direction_label": "동남동",
+      "wind_speed_mps": 3.0,
+      "industrial_influence": {
+        "level": "medium",
+        "score": 0.6,
+        "upwind_facilities": [
+          "광양제철소",
+          "여수국가산단"
+        ],
+        "note": "동남동풍이라 광양·여수 산단 쪽에서 바람이 옵니다."
+      },
+      "confidence": 0.73,
+      "is_fallback": false
+    },
+    {
+      "forecast_time": "2026-09-24T19:00:00+09:00",
+      "pm25_predicted": 30,
+      "air_quality": "보통",
+      "wind_direction": 118,
+      "wind_direction_label": "동남동",
+      "wind_speed_mps": 2.7,
+      "industrial_influence": {
+        "level": "medium",
+        "score": 0.6,
+        "upwind_facilities": [
+          "광양제철소",
+          "여수국가산단"
+        ],
+        "note": "동남동풍이라 광양·여수 산단 쪽에서 바람이 옵니다."
+      },
+      "confidence": 0.7,
+      "is_fallback": false
+    },
+    {
+      "forecast_time": "2026-09-24T20:00:00+09:00",
+      "pm25_predicted": 27,
+      "air_quality": "보통",
+      "wind_direction": 125,
+      "wind_direction_label": "남동",
+      "wind_speed_mps": 2.4,
+      "industrial_influence": {
+        "level": "medium",
+        "score": 0.6,
+        "upwind_facilities": [
+          "광양제철소",
+          "여수국가산단"
+        ],
+        "note": "남동풍이라 광양·여수 산단 쪽에서 바람이 옵니다."
+      },
+      "confidence": 0.67,
+      "is_fallback": false
+    },
+    {
+      "forecast_time": "2026-09-24T21:00:00+09:00",
+      "pm25_predicted": 24,
+      "air_quality": "보통",
+      "wind_direction": 140,
+      "wind_direction_label": "남동",
+      "wind_speed_mps": 2.1,
+      "industrial_influence": {
+        "level": "low",
+        "score": 0.15,
+        "upwind_facilities": [],
+        "note": "남동풍이라 산단 방향 바람은 아닙니다."
+      },
+      "confidence": 0.64,
+      "is_fallback": false
+    },
+    {
+      "forecast_time": "2026-09-24T22:00:00+09:00",
+      "pm25_predicted": 21,
+      "air_quality": "보통",
+      "wind_direction": 165,
+      "wind_direction_label": "남남동",
+      "wind_speed_mps": 1.9,
+      "industrial_influence": {
+        "level": "low",
+        "score": 0.15,
+        "upwind_facilities": [],
+        "note": "남남동풍이라 산단 방향 바람은 아닙니다."
+      },
+      "confidence": 0.61,
+      "is_fallback": false
+    },
+    {
+      "forecast_time": "2026-09-24T23:00:00+09:00",
+      "pm25_predicted": 19,
+      "air_quality": "보통",
+      "wind_direction": 200,
+      "wind_direction_label": "남남서",
+      "wind_speed_mps": 1.8,
+      "industrial_influence": {
+        "level": "low",
+        "score": 0.15,
+        "upwind_facilities": [],
+        "note": "남남서풍이라 산단 방향 바람은 아닙니다."
+      },
+      "confidence": 0.58,
+      "is_fallback": false
+    },
+    {
+      "forecast_time": "2026-09-25T00:00:00+09:00",
+      "pm25_predicted": 18,
+      "air_quality": "보통",
+      "wind_direction": 250,
+      "wind_direction_label": "서남서",
+      "wind_speed_mps": 2.0,
+      "industrial_influence": {
+        "level": "low",
+        "score": 0.15,
+        "upwind_facilities": [],
+        "note": "서남서풍이라 산단 방향 바람은 아닙니다."
+      },
+      "confidence": 0.55,
+      "is_fallback": false
+    },
+    {
+      "forecast_time": "2026-09-25T01:00:00+09:00",
+      "pm25_predicted": 17,
+      "air_quality": "보통",
+      "wind_direction": 290,
+      "wind_direction_label": "서북서",
+      "wind_speed_mps": 2.3,
+      "industrial_influence": {
+        "level": "low",
+        "score": 0.15,
+        "upwind_facilities": [],
+        "note": "서북서풍이라 산단 방향 바람은 아닙니다."
+      },
+      "confidence": 0.52,
+      "is_fallback": false
+    },
+    {
+      "forecast_time": "2026-09-25T02:00:00+09:00",
+      "pm25_predicted": 16,
+      "air_quality": "보통",
+      "wind_direction": 310,
+      "wind_direction_label": "북서",
+      "wind_speed_mps": 2.6,
+      "industrial_influence": {
+        "level": "low",
+        "score": 0.15,
+        "upwind_facilities": [],
+        "note": "북서풍이라 산단 방향 바람은 아닙니다."
+      },
+      "confidence": 0.5,
+      "is_fallback": false
+    },
+    {
+      "forecast_time": "2026-09-25T03:00:00+09:00",
+      "pm25_predicted": 16,
+      "air_quality": "보통",
+      "wind_direction": 315,
+      "wind_direction_label": "북서",
+      "wind_speed_mps": 2.8,
+      "industrial_influence": {
+        "level": "low",
+        "score": 0.15,
+        "upwind_facilities": [],
+        "note": "북서풍이라 산단 방향 바람은 아닙니다."
+      },
+      "confidence": 0.48,
+      "is_fallback": false
+    }
+  ],
+  "recommendation": {
+    "ventilation": {
+      "status": "caution",
+      "windows": [
+        {
+          "start": "2026-09-24T21:00:00+09:00",
+          "end": "2026-09-25T03:00:00+09:00"
+        }
+      ],
+      "text": "18시까지는 창문을 닫아 두고, 풍향이 북서로 바뀌는 21시 이후 환기하세요."
+    },
+    "outdoor": {
+      "status": "caution",
+      "windows": [
+        {
+          "start": "2026-09-24T22:00:00+09:00",
+          "end": "2026-09-25T03:00:00+09:00"
+        }
+      ],
+      "text": "민감군은 오후 운동을 미루고, 22시 이후 산책을 권합니다."
+    },
+    "summary": "오후에는 산단 쪽 바람, 밤에는 북서풍으로 바뀌어 나아집니다."
+  },
+  "reason": "동남동풍이 이어지고 광양 방향 상류 측정소 PM2.5가 41 ㎍/㎥라 18시까지 소폭 상승, 이후 풍향이 북서로 바뀌며 낮아질 전망입니다.",
+  "model": {
+    "name": "baseline-wind-rule",
+    "version": "0.1.0",
+    "mae_validation": null,
+    "trained_at": null
+  }
+}
