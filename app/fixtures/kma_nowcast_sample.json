@@ -1,0 +1,50 @@
+{
+  "response": {
+    "header": {
+      "resultCode": "00",
+      "resultMsg": "NORMAL_SERVICE"
+    },
+    "body": {
+      "dataType": "JSON",
+      "items": {
+        "item": [
+          {
+            "baseDate": "20260924",
+            "baseTime": "1400",
+            "category": "VEC",
+            "obsrValue": "112",
+            "nx": 70,
+            "ny": 70
+          },
+          {
+            "baseDate": "20260924",
+            "baseTime": "1400",
+            "category": "WSD",
+            "obsrValue": "3.1",
+            "nx": 70,
+            "ny": 70
+          },
+          {
+            "baseDate": "20260924",
+            "baseTime": "1400",
+            "category": "T1H",
+            "obsrValue": "24.3",
+            "nx": 70,
+            "ny": 70
+          },
+          {
+            "baseDate": "20260924",
+            "baseTime": "1400",
+            "category": "REH",
+            "obsrValue": "68",
+            "nx": 70,
+            "ny": 70
+          }
+        ]
+      },
+      "pageNo": 1,
+      "numOfRows": 20,
+      "totalCount": 4
+    }
+  }
+}
