@@ -1,0 +1,29 @@
+{
+  "response": {
+    "header": {
+      "resultCode": "00",
+      "resultMsg": "NORMAL_CODE"
+    },
+    "body": {
+      "totalCount": 1,
+      "pageNo": 1,
+      "numOfRows": 1,
+      "items": [
+        {
+          "stationName": "연향동",
+          "dataTime": "2026-09-24 14:00",
+          "so2Value": "0.003",
+          "coValue": "0.4",
+          "o3Value": "0.031",
+          "no2Value": "0.012",
+          "pm10Value": "38",
+          "pm25Value": "23",
+          "khaiValue": "62",
+          "khaiGrade": "2",
+          "pm10Grade": "2",
+          "pm25Grade": "2"
+        }
+      ]
+    }
+  }
+}
