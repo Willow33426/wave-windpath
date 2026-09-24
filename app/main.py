@@ -75,9 +75,10 @@ async def health() -> dict:
     now = datetime.now(KST)
     try:
         last_collected = db.get_meta(conn, META_LAST_COLLECTED)
+        is_fallback = db.get_meta(conn, META_LAST_FALLBACK, "0") == "1"
         db_status = "ok"
     except Exception:  # noqa: BLE001 - 상태 확인은 실패해도 응답해야 한다
-        last_collected, db_status = None, "error"
+        last_collected, is_fallback, db_status = None, False, "error"
 
     status = "ok"
     if db_status != "ok" or last_collected is None:
@@ -95,7 +96,7 @@ async def health() -> dict:
         "time": now.isoformat(),
         "db": db_status,
         "last_collected_at": last_collected,
-        "is_fallback": db.get_meta(conn, META_LAST_FALLBACK, "0") == "1",
+        "is_fallback": is_fallback,
     }
 
 

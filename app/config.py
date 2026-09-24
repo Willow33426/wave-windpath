@@ -60,12 +60,22 @@ class Settings:
         return bool(self.service_key.strip())
 
 
+def _db_path() -> Path:
+    """DB_PATH가 상대 경로면 프로젝트 루트 기준으로 읽는다.
+
+    Supervisor가 작업 디렉터리를 `app/`으로 잡기 때문에, 그냥 두면 배포 서버에서만
+    `app/data/`에 DB가 생겨 로컬과 위치가 달라진다(AGENTS.md는 `data/`로 정해 둠).
+    """
+    raw = Path(os.getenv("DB_PATH", "") or (ROOT_DIR / "data" / "wave.db"))
+    return raw if raw.is_absolute() else ROOT_DIR / raw
+
+
 def load_settings() -> Settings:
     return Settings(
         internal_host=os.getenv("INTERNAL_HOST", "127.0.0.1"),
         internal_port=_int("INTERNAL_PORT", 8000),
         service_key=os.getenv("DATA_GO_KR_SERVICE_KEY", ""),
-        db_path=Path(os.getenv("DB_PATH", str(ROOT_DIR / "data" / "wave.db"))),
+        db_path=_db_path(),
         collect_interval_minutes=_int("COLLECT_INTERVAL_MINUTES", 30),
         request_timeout_sec=float(os.getenv("REQUEST_TIMEOUT_SEC", "10")),
         request_retries=_int("REQUEST_RETRIES", 2),

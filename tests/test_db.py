@@ -1,5 +1,8 @@
 """SQLite 저장·조회 테스트."""
+import importlib.util
+import os
 import pathlib
+import sqlite3
 import sys
 import tempfile
 import unittest
@@ -82,6 +85,116 @@ class CollectorFallbackTest(unittest.TestCase):
             self.assertEqual(db.get_meta(conn, META_LAST_FALLBACK), "1")
             self.assertIsNotNone(db.latest_observation(conn, "suncheon", "pm25"))
             conn.close()
+
+
+def _fallback_conn(tmp, name="fallback.db", stations=1):
+    """키 없이 한 번 수집한 뒤의 연결을 돌려준다."""
+    from app.collector import collect_once
+    from app.config import STATIONS, Settings
+
+    db_path = pathlib.Path(tmp) / name
+    settings = Settings(service_key="", db_path=db_path, stations=STATIONS[:stations])
+    conn = db.connect(db_path)
+    collect_once(settings, conn)
+    return conn
+
+
+class FixtureRebaseTest(unittest.TestCase):
+    """fixture의 고정 시각이 실행 시각으로 옮겨지는지."""
+
+    def test_fallback_records_stay_in_recent_window(self):
+        # 고정 시각을 그대로 저장하면 며칠 뒤 최근 24시간 조회가 비어 시연이 깨진다.
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
+            conn = _fallback_conn(tmp, "rebase.db")
+            rows = db.query_measurements(conn, station="suncheon",
+                                         since=datetime.now(KST) - timedelta(hours=24))
+            self.assertGreater(len(rows), 0)
+            conn.close()
+
+    def test_rebase_keeps_intervals(self):
+        from app.collector import _rebase
+
+        base = datetime(2020, 1, 1, tzinfo=KST)
+        items = [Record("kma", "suncheon", "forecast", base, base + timedelta(hours=i),
+                        "wind_speed", 3.0, "m/s") for i in range(3)]
+        now = datetime(2026, 9, 24, 15, 30, tzinfo=KST)
+        moved = _rebase(items, now)
+
+        self.assertEqual(moved[0].base_time, now.replace(minute=0))
+        self.assertEqual([r.target_time - r.base_time for r in moved],
+                         [r.target_time - r.base_time for r in items])
+
+    def test_rebase_of_empty_list(self):
+        from app.collector import _rebase
+        self.assertEqual(_rebase([], datetime.now(KST)), [])
+
+
+class NowcastCollectedTest(unittest.TestCase):
+    """초단기실황이 수집 루프에 실제로 포함되는지."""
+
+    def test_kma_observation_is_stored(self):
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
+            conn = _fallback_conn(tmp, "nowcast.db")
+            rows = db.query_measurements(conn, station="suncheon", kind="observation",
+                                         metric="wind_speed")
+            self.assertTrue(any(r["source"] == "kma" for r in rows))
+            conn.close()
+
+
+class DbPathTest(unittest.TestCase):
+    """상대 DB_PATH는 작업 디렉터리가 아니라 프로젝트 루트 기준이어야 한다."""
+
+    def test_relative_path_resolves_under_root(self):
+        from app.config import ROOT_DIR, load_settings
+
+        previous = os.environ.get("DB_PATH")
+        os.environ["DB_PATH"] = "data/wave.db"
+        try:
+            self.assertEqual(load_settings().db_path, ROOT_DIR / "data" / "wave.db")
+        finally:
+            if previous is None:
+                os.environ.pop("DB_PATH", None)
+            else:
+                os.environ["DB_PATH"] = previous
+
+    def test_absolute_path_is_kept(self):
+        from app.config import load_settings
+
+        previous = os.environ.get("DB_PATH")
+        absolute = str(pathlib.Path(tempfile.gettempdir()) / "wave-abs.db")
+        os.environ["DB_PATH"] = absolute
+        try:
+            self.assertEqual(str(load_settings().db_path), absolute)
+        finally:
+            if previous is None:
+                os.environ.pop("DB_PATH", None)
+            else:
+                os.environ["DB_PATH"] = previous
+
+
+@unittest.skipUnless(importlib.util.find_spec("fastapi"), "fastapi 미설치 (CI에서 실행)")
+class HealthResilienceTest(unittest.TestCase):
+    """DB가 깨져도 상태 응답 자체는 나와야 한다."""
+
+    def test_health_returns_error_status_instead_of_raising(self):
+        import asyncio
+
+        from app import main as app_main
+
+        class BrokenConn:
+            def execute(self, *args, **kwargs):
+                raise sqlite3.DatabaseError("깨진 DB")
+
+        previous = getattr(app_main.app.state, "conn", None)
+        app_main.app.state.conn = BrokenConn()
+        try:
+            result = asyncio.run(app_main.health())
+        finally:
+            app_main.app.state.conn = previous
+
+        self.assertEqual(result["db"], "error")
+        self.assertEqual(result["status"], "degraded")
+        self.assertFalse(result["is_fallback"])
 
 
 if __name__ == "__main__":

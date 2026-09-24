@@ -3,12 +3,20 @@ from __future__ import annotations
 
 import json
 import logging
+from dataclasses import replace
 from datetime import datetime
 from pathlib import Path
 
 from app import db
 from app.config import APP_DIR, Settings, Station, load_settings
-from app.sources.parse import KST, Record, UpstreamError, parse_airkorea, parse_kma_forecast
+from app.sources.parse import (
+    KST,
+    Record,
+    UpstreamError,
+    parse_airkorea,
+    parse_kma_forecast,
+    parse_kma_observation,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -34,14 +42,33 @@ def _load_fetch(settings: Settings):
     return fetch
 
 
-def _collect_station(station: Station, settings: Settings) -> tuple[list[Record], bool]:
-    """한 관측소의 대기질·예보를 모은다. (레코드, 폴백여부)"""
+def _rebase(records: list[Record], now: datetime) -> list[Record]:
+    """fixture의 고정 시각을 실행 시각으로 평행 이동한다.
+
+    고정 시각을 그대로 저장하면 며칠 뒤에는 `/api/observations`의 최근 24시간
+    조회에서 전부 빠져 시연 화면이 비어 버린다. 레코드 사이의 간격은 그대로 두고
+    가장 늦은 발표 시각이 현재 정시가 되도록 통째로 옮긴다.
+    """
+    if not records:
+        return records
+    delta = now.replace(minute=0, second=0, microsecond=0) - max(r.base_time for r in records)
+    if not delta:
+        return records
+    return [replace(r, base_time=r.base_time + delta, target_time=r.target_time + delta)
+            for r in records]
+
+
+def _collect_station(station: Station, settings: Settings,
+                     now: datetime | None = None) -> tuple[list[Record], bool]:
+    """한 관측소의 대기질·실황·예보를 모은다. (레코드, 폴백여부)"""
     fetch = _load_fetch(settings)
+    now = now or datetime.now(KST)
     records: list[Record] = []
     used_fallback = False
 
     for fixture_name, parser, caller in (
         ("airkorea_sample.json", parse_airkorea, "fetch_airkorea"),
+        ("kma_nowcast_sample.json", parse_kma_observation, "fetch_kma_nowcast"),
         ("kma_forecast_sample.json", parse_kma_forecast, "fetch_kma_forecast"),
     ):
         try:
@@ -51,7 +78,7 @@ def _collect_station(station: Station, settings: Settings) -> tuple[list[Record]
             records += parser(payload, station.key)
         except UpstreamError as exc:
             logger.warning("%s 수집 실패(%s) → fixture 사용: %s", caller, station.key, exc)
-            records += parser(load_fixture(fixture_name), station.key)
+            records += _rebase(parser(load_fixture(fixture_name), station.key), now)
             used_fallback = True
 
     return records, used_fallback
@@ -67,7 +94,7 @@ def collect_once(settings: Settings | None = None, conn=None) -> dict:
 
     try:
         for station in settings.stations:
-            records, station_fallback = _collect_station(station, settings)
+            records, station_fallback = _collect_station(station, settings, collected_at)
             total += db.upsert_records(conn, records, collected_at)
             fallback = fallback or station_fallback
         db.set_meta(conn, META_LAST_COLLECTED, collected_at.isoformat())
