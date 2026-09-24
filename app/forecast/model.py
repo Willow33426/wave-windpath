@@ -152,9 +152,9 @@ def predict(
     hours: int = 12,
     model_path: str | Path = "data/model.joblib",
 ) -> list[dict]:
-    """학습 모델로 예측하고, 사용할 수 없으면 기준선으로 대체한다."""
-    fallback = baseline.predict(features, hours)
+    """학습 모델로 예측하고, 사용할 수 없으면 persistence로 대체한다."""
     history = features.get("target_history") or []
+    fallback = baseline.persistence_forecast(history, hours)
     if not history:
         return fallback
 
@@ -180,7 +180,11 @@ def predict(
 
         result = []
         for horizon in range(1, hours + 1):
-            value = max(0.0, float(models[horizon].predict([input_row])[0]))
+            value = float(models[horizon].predict([input_row])[0])
+            if not math.isfinite(value):
+                return fallback
+
+            value = max(0.0, value)
             item = dict(fallback[horizon - 1])
             item["pm25_predicted"] = round(value, 1)
             item["air_quality"] = baseline._grade(value)
@@ -193,6 +197,6 @@ def predict(
             item["model"] = MODEL_NAME
             result.append(item)
         return result
-    except (OSError, ValueError, KeyError, IndexError):
-        logger.exception("ML 모델 예측 실패: 기준선으로 대체")
+    except Exception:
+        logger.exception("ML 모델 로드 또는 예측 실패: persistence로 대체")
         return fallback
