@@ -157,6 +157,16 @@ class EvaluateScriptTest(unittest.TestCase):
         self.assertTrue(all(v is None or v >= 0 for v in result["overall"].values()))
 
 
+    def test_non_finite_csv_values_are_treated_as_missing(self):
+        sys.path.insert(0, str(ROOT / "scripts"))
+        from evaluate_baseline import _float  # noqa: E402
+
+        for value in ("NaN", "nan", "inf", "-inf", "Infinity"):
+            with self.subTest(value=value):
+                self.assertIsNone(_float(value))
+        self.assertEqual(_float("1.5"), 1.5)
+
+
 class ContractShapeTest(unittest.TestCase):
     """폴백이든 아니든 forecast[] 항목 구조가 같아야 한다."""
 
