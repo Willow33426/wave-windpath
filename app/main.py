@@ -69,6 +69,7 @@ async def index() -> str:
 </html>"""
 
 
+@app.get("/health", include_in_schema=False)
 @app.get("/api/health")
 async def health() -> dict:
     conn = app.state.conn
@@ -100,6 +101,7 @@ async def health() -> dict:
     }
 
 
+@app.get("/observations", include_in_schema=False)
 @app.get("/api/observations")
 async def observations(
     station: str | None = Query(None, description="관측소 키 (suncheon·gwangyang·yeosu)"),
