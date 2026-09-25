@@ -32,3 +32,9 @@ python scripts\evaluate_model.py data\demo_history.csv --hours 12 --split 0.8
 `save_models()`와 `load_models()`로 12개 모델을 저장·불러올 수 있다. `predict(features)`는 기본 경로 `data/model.joblib`에서 모델을 찾고, 모델 파일이나 필요한 과거 관측이 없으면 `wind_rule` 또는 `persistence` 기준선으로 대체한다. 학습은 결측된 정답 행을 제외하고, 상류 관측과 기상 입력의 결측은 모델 입력에서 결측값으로 처리한다.
 
 `data/demo_model.joblib`은 로컬 동작 확인용이며 운영 모델이 아니다. 서버에는 검증된 실데이터 모델을 아직 연결하지 않았다. 실관측 이력이 충분히 쌓이면 누락값과 데이터 출처를 확인하고 실데이터로 다시 학습·평가해야 한다.
+
+## 서버 입력 연결 준비
+
+`app.forecast.inputs.build_features(conn, hours=12)`는 SQLite의 순천 PM2.5·풍향·풍속 관측, 광양(없으면 여수) PM2.5 관측, 순천 풍향·풍속 예보를 `predict()` 입력으로 묶는다. 현재 시각까지 수집된 값만 읽으며, PM2.5 실측이 없으면 빈 이력을 반환한다. 시민 모드 API 응답 조립과 엔드포인트 호출은 아직 연결되지 않았다.
+
+현재 DB는 같은 예보 대상 시각의 값을 새 발표분으로 덮어쓴다. 과거 시점에 이용할 수 있었던 예보로 공정하게 재평가하려면 예보 발표 이력을 별도로 보존해야 한다.
