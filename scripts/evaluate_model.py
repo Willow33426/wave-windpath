@@ -38,7 +38,10 @@ def main() -> None:
         }
         for row in rows
     ]
-    models = train_models(training_rows, hours=args.hours, split=args.split)
+    try:
+        models = train_models(training_rows, hours=args.hours, split=args.split)
+    except ValueError as exc:
+        raise SystemExit(f"{args.hours}시간 실측 평가를 진행할 수 없습니다: {exc}") from None
 
     actual = {
         row["time"]: row["pm25"]
