@@ -18,7 +18,6 @@ if str(ROOT) not in sys.path:
 import uvicorn
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import HTMLResponse
-from fastapi.responses import JSONResponse
 
 from app import db
 from app.collector import META_LAST_COLLECTED, META_LAST_FALLBACK
@@ -132,8 +131,9 @@ async def observations(
 def citizen_forecast(
     location: str = "suncheon",
     hours: int = 12,
-) -> dict | JSONResponse:
+):
     """저장된 실측·예보로 시민 모드 예측 응답을 만든다."""
+    from fastapi.responses import JSONResponse
     if location != "suncheon":
         return JSONResponse(status_code=400, content={
             "error": {"code": "INVALID_PARAMETER", "message": "지원하지 않는 지역입니다", "field": "location"}
