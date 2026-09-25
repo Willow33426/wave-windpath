@@ -11,7 +11,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from app.forecast.baseline import Observation
+from app.forecast.baseline import Observation, persistence_forecast
 from app.forecast.model import make_features, train_models
 from scripts.evaluate_baseline import load_rows
 
@@ -47,6 +47,7 @@ def main() -> None:
     }
     start_index = max(1, int(len(rows) * args.split))
     errors = {h: [] for h in range(1, args.hours + 1)}
+    persistence_errors = {h: [] for h in range(1, args.hours + 1)}
     origins = 0
 
     for i in range(start_index, len(rows) - 1):
@@ -65,8 +66,6 @@ def main() -> None:
         ]
         if not target_history:
             continue
-        origins += 1
-
         features = make_features(
             target_history,
             upwind_history,
@@ -76,6 +75,8 @@ def main() -> None:
         )
         if features is None:
             continue
+        origins += 1
+        persistence = persistence_forecast(target_history, args.hours, start=origin)
 
         for horizon, model in models.items():
             truth = actual.get(origin + timedelta(hours=horizon))
@@ -83,6 +84,9 @@ def main() -> None:
                 continue
             predicted = float(model.predict([features])[0])
             errors[horizon].append(abs(predicted - truth))
+            persistence_errors[horizon].append(
+                abs(persistence[horizon - 1]["pm25_predicted"] - truth)
+            )
 
     all_errors = [error for values in errors.values() for error in values]
 
@@ -91,13 +95,17 @@ def main() -> None:
         f"{rows[start_index]['time'].isoformat()} · 기준 시각 {origins}개"
     )
     print()
-    print(" 예측 시간       ML MAE    채점 건수")
+    print(" 예측 시간       ML MAE  persistence MAE    채점 건수")
     for horizon, values in errors.items():
         score = f"{statistics.fmean(values):.2f}" if values else "-"
-        print(f"{horizon:>6}h {score:>12} {len(values):>10}")
+        base_values = persistence_errors[horizon]
+        base_score = f"{statistics.fmean(base_values):.2f}" if base_values else "-"
+        print(f"{horizon:>6}h {score:>12} {base_score:>16} {len(values):>10}")
     print()
     if all_errors:
         print(f"전체 ML MAE: {statistics.fmean(all_errors):.2f} ㎍/㎥")
+        base_errors = [error for values in persistence_errors.values() for error in values]
+        print(f"동일 표본 persistence MAE: {statistics.fmean(base_errors):.2f} ㎍/㎥")
     else:
         print("채점 가능한 예측이 없습니다.")
     print("주의: 데모 데이터 결과는 실제 서비스 성능이 아닙니다.")

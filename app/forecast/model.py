@@ -81,19 +81,17 @@ def train_models(
     """
     if not 0 < split < 1:
         raise ValueError("split은 0과 1 사이여야 합니다.")
+    if hours < 1:
+        raise ValueError("hours는 1 이상이어야 합니다.")
 
     rows = sorted(rows, key=lambda row: row["time"])
     cutoff = int(len(rows) * split)
     times = [datetime.fromisoformat(row["time"]) for row in rows]
 
-    target_history = [
-        Observation(time=t, pm25=float(row["pm25"]))
-        for t, row in zip(times, rows)
-    ]
-    upwind_history = [
-        Observation(time=t, pm25=float(row["upwind_pm25"]))
-        for t, row in zip(times, rows)
-    ]
+    target_history = [Observation(time=t, pm25=row["pm25"])
+                      for t, row in zip(times, rows) if row["pm25"] is not None]
+    upwind_history = [Observation(time=t, pm25=row["upwind_pm25"])
+                      for t, row in zip(times, rows) if row["upwind_pm25"] is not None]
 
     models: dict[int, HistGradientBoostingRegressor] = {}
     for horizon in range(1, hours + 1):
@@ -105,14 +103,16 @@ def train_models(
             features = make_features(
                 target_history[: i + 1],
                 upwind_history[: i + 1],
-                float(row["wind_direction"]),
-                float(row["wind_speed"]),
+                row["wind_direction"],
+                row["wind_speed"],
                 times[i],
             )
             if features is None:
                 continue
 
             if times[i + horizon] != times[i] + timedelta(hours=horizon):
+                continue
+            if rows[i + horizon]["pm25"] is None:
                 continue
 
             x_train.append(features)
@@ -152,9 +152,9 @@ def predict(
     hours: int = 12,
     model_path: str | Path = "data/model.joblib",
 ) -> list[dict]:
-    """학습 모델로 예측하고, 사용할 수 없으면 persistence로 대체한다."""
+    """학습 모델로 예측하고, 사용할 수 없으면 기준선으로 대체한다."""
     history = features.get("target_history") or []
-    fallback = baseline.persistence_forecast(history, hours)
+    fallback = baseline.predict(features, hours)
     if not history:
         return fallback
 
@@ -162,7 +162,10 @@ def predict(
     if not path.is_file():
         return fallback
 
-    latest = max(history, key=lambda obs: obs.time)
+    valid_history = [obs for obs in history if obs.pm25 is not None]
+    if not valid_history:
+        return fallback
+    latest = max(valid_history, key=lambda obs: obs.time)
     input_row = make_features(
         history,
         features.get("upwind_history") or [],
@@ -198,5 +201,5 @@ def predict(
             result.append(item)
         return result
     except Exception:
-        logger.exception("ML 모델 로드 또는 예측 실패: persistence로 대체")
+        logger.exception("ML 모델 로드 또는 예측 실패: 기준선으로 대체")
         return fallback
