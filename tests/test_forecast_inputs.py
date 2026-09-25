@@ -73,8 +73,10 @@ class ForecastInputsTest(unittest.TestCase):
         db.upsert_records(self.conn,
                           [record("suncheon", "pm25", 99, origin)], NOW)
         with self.conn:
-            self.conn.execute("ALTER TABLE measurements ADD COLUMN data_origin "
-                              "TEXT NOT NULL DEFAULT 'live'")
+            if not any(row["name"] == "data_origin"
+                       for row in self.conn.execute("PRAGMA table_info(measurements)")):
+                self.conn.execute("ALTER TABLE measurements ADD COLUMN data_origin "
+                                  "TEXT NOT NULL DEFAULT 'live'")
             self.conn.execute("UPDATE measurements SET data_origin='fixture'")
         self.assertEqual(build_features(self.conn, now=NOW)["target_history"], [])
         self.assertEqual(build_features(self.conn, now=NOW,

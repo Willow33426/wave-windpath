@@ -17,7 +17,8 @@ if str(ROOT) not in sys.path:
 
 import uvicorn
 from fastapi import FastAPI, HTTPException, Query
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse
+from fastapi.responses import JSONResponse
 
 from app import db
 from app.collector import META_LAST_COLLECTED, META_LAST_FALLBACK
