@@ -17,11 +17,12 @@ if str(ROOT) not in sys.path:
 
 import uvicorn
 from fastapi import FastAPI, HTTPException, Query
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 
 from app import db
 from app.collector import META_LAST_COLLECTED, META_LAST_FALLBACK
 from app.config import load_settings
+from app.forecast.citizen import build_response
 from app.scheduler import run_collector_loop
 from app.sources.parse import KST
 
@@ -124,6 +125,30 @@ async def observations(
         "last_collected_at": db.get_meta(conn, META_LAST_COLLECTED),
         "items": db.rows_to_dicts(rows),
     }
+
+
+@app.get("/api/citizen/forecast", response_model=None)
+def citizen_forecast(
+    location: str = "suncheon",
+    hours: int = 12,
+) -> dict | JSONResponse:
+    """저장된 실측·예보로 시민 모드 예측 응답을 만든다."""
+    if location != "suncheon":
+        return JSONResponse(status_code=400, content={
+            "error": {"code": "INVALID_PARAMETER", "message": "지원하지 않는 지역입니다", "field": "location"}
+        })
+    if not 1 <= hours <= 24:
+        return JSONResponse(status_code=400, content={
+            "error": {"code": "INVALID_PARAMETER", "message": "hours는 1~24여야 합니다", "field": "hours"}
+        })
+    result = build_response(app.state.conn, hours=hours)
+    if result["current"] is None:
+        return JSONResponse(status_code=503, content={
+            "error": {"code": "UPSTREAM_UNAVAILABLE",
+                      "message": "대기질 데이터를 가져오지 못했습니다. 잠시 후 다시 시도해 주세요.",
+                      "retry_after_sec": 300}
+        })
+    return result
 
 
 if __name__ == "__main__":

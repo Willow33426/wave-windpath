@@ -16,10 +16,11 @@ def _values(conn: sqlite3.Connection, station: str, metric: str,
     rows = conn.execute(
         "SELECT target_time, value FROM measurements "
         "WHERE station=? AND metric=? AND kind=? "
-        "AND target_time>=? AND target_time<=? AND collected_at<=? "
+        "AND target_time>=? AND target_time<=? "
+        "AND base_time<=? AND collected_at<=? "
         "ORDER BY target_time",
         (station, metric, kind, start.isoformat(), end.isoformat(),
-         available_at.isoformat()),
+         available_at.isoformat(), available_at.isoformat()),
     ).fetchall()
     return {datetime.fromisoformat(row["target_time"]): float(row["value"])
             for row in rows}
