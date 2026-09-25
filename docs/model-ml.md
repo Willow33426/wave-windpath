@@ -38,3 +38,7 @@ python scripts\evaluate_model.py data\demo_history.csv --hours 12 --split 0.8
 `app.forecast.inputs.build_features(conn, hours=12)`는 SQLite의 순천 PM2.5·풍향·풍속 관측, 광양(없으면 여수) PM2.5 관측, 순천 풍향·풍속 예보를 `predict()` 입력으로 묶는다. 현재 시각까지 수집된 값만 읽으며, PM2.5 실측이 없으면 빈 이력을 반환한다. `GET /api/citizen/forecast?location=suncheon&hours=12`가 이 입력으로 예측을 실행해 #1 응답 형식으로 돌려준다. 실측으로 검증된 운영 모델 파일이 없으면 기준선을 사용한다.
 
 현재 DB는 같은 예보 대상 시각의 값을 새 발표분으로 덮어쓴다. 과거 시점에 이용할 수 있었던 예보로 공정하게 재평가하려면 예보 발표 이력을 별도로 보존해야 한다.
+
+## 과거 실측 확보
+
+승인된 에어코리아 키가 `app/.env`에 설정된 환경에서 `python scripts/export_airkorea_history.py`를 실행하면 최근 한 달 순천·광양·여수 PM2.5를 `data/airkorea_month_history.csv`로 내보낸다. 키는 CSV에 기록하지 않는다. 이 CSV에는 과거 기상 관측이 없으므로 풍향 규칙은 사실상 persistence가 되며, 학습 모델도 기상 변수를 사용하지 못한다. 따라서 이 CSV만으로 얻은 MAE를 기상 변수를 모두 쓴 운영 모델의 성능으로 표시하지 않는다. CSV는 `data/`에 보관하고 Git에 추가하지 않는다.
