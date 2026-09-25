@@ -68,6 +68,18 @@ class ForecastInputsTest(unittest.TestCase):
         self.assertEqual(features, {"target_history": [], "upwind_history": [],
                                     "weather": []})
 
+    def test_fixture_records_are_excluded_when_origin_column_exists(self):
+        origin = NOW.replace(minute=0)
+        db.upsert_records(self.conn,
+                          [record("suncheon", "pm25", 99, origin)], NOW)
+        with self.conn:
+            self.conn.execute("ALTER TABLE measurements ADD COLUMN data_origin "
+                              "TEXT NOT NULL DEFAULT 'live'")
+            self.conn.execute("UPDATE measurements SET data_origin='fixture'")
+        self.assertEqual(build_features(self.conn, now=NOW)["target_history"], [])
+        self.assertEqual(build_features(self.conn, now=NOW,
+                                        include_fixture=True)["target_history"][0].pm25, 99)
+
 
 if __name__ == "__main__":
     unittest.main()

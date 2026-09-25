@@ -83,6 +83,23 @@ class CitizenForecastTest(unittest.TestCase):
         self.assertEqual(response.json()["current"]["pm25"], 20)
         self.assertEqual(len(response.json()["forecast"]), 1)
 
+    def test_old_fixture_is_not_mistaken_for_live_observation(self):
+        origin = NOW.replace(minute=0)
+        db.upsert_records(self.conn,
+                          [record("suncheon", "observation", "pm25", 99, origin)], NOW)
+        with self.conn:
+            self.conn.execute("ALTER TABLE measurements ADD COLUMN data_origin "
+                              "TEXT NOT NULL DEFAULT 'live'")
+            self.conn.execute("UPDATE measurements SET data_origin='fixture'")
+        result = build_response(self.conn, now=NOW)
+        self.assertIsNone(result["current"])
+        # 실제 meta 키는 수집 모듈의 상수를 사용한다.
+        from app.collector import META_LAST_FALLBACK
+        db.set_meta(self.conn, META_LAST_FALLBACK, "1")
+        result = build_response(self.conn, now=NOW)
+        self.assertEqual(result["current"]["pm25"], 99)
+        self.assertTrue(result["is_fallback"])
+
 
 if __name__ == "__main__":
     unittest.main()

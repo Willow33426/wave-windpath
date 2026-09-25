@@ -20,11 +20,14 @@ WIND_LABELS = ("북", "북북동", "북동", "동북동", "동", "동남동", "�
 
 
 def _latest(conn: sqlite3.Connection, station: str, metric: str,
-            now: datetime) -> sqlite3.Row | None:
+            now: datetime, include_fixture: bool = False) -> sqlite3.Row | None:
+    has_origin = any(row["name"] == "data_origin"
+                     for row in conn.execute("PRAGMA table_info(measurements)"))
+    fixture_clause = "" if include_fixture or not has_origin else "AND data_origin != 'fixture' "
     return conn.execute(
         "SELECT * FROM measurements WHERE station=? AND metric=? "
-        "AND kind='observation' AND target_time<=? AND collected_at<=? "
-        "ORDER BY target_time DESC LIMIT 1",
+        "AND kind='observation' AND target_time<=? AND collected_at<=? " +
+        fixture_clause + "ORDER BY target_time DESC LIMIT 1",
         (station, metric, now.isoformat(), now.isoformat()),
     ).fetchone()
 
@@ -72,13 +75,13 @@ def _recommendation(forecast: list[dict]) -> dict:
 def build_response(conn: sqlite3.Connection, hours: int = 12,
                    now: datetime | None = None) -> dict:
     now = now or datetime.now(KST)
-    features = build_features(conn, hours=hours, now=now)
     fixture = db.get_meta(conn, META_LAST_FALLBACK, "0") == "1"
-    pm25 = _latest(conn, "suncheon", "pm25", now)
-    pm10 = _latest(conn, "suncheon", "pm10", now)
-    direction = _latest(conn, "suncheon", "wind_direction", now)
-    speed = _latest(conn, "suncheon", "wind_speed", now)
-    temperature = _latest(conn, "suncheon", "temperature", now)
+    features = build_features(conn, hours=hours, now=now, include_fixture=fixture)
+    pm25 = _latest(conn, "suncheon", "pm25", now, fixture)
+    pm10 = _latest(conn, "suncheon", "pm10", now, fixture)
+    direction = _latest(conn, "suncheon", "wind_direction", now, fixture)
+    speed = _latest(conn, "suncheon", "wind_speed", now, fixture)
+    temperature = _latest(conn, "suncheon", "temperature", now, fixture)
 
     direction_value = direction["value"] if direction else None
     speed_value = speed["value"] if speed else None
