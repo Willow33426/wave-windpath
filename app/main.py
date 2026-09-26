@@ -17,7 +17,7 @@ if str(ROOT) not in sys.path:
 
 import uvicorn
 from fastapi import FastAPI, HTTPException, Query
-from fastapi.responses import HTMLResponse
+from fastapi.responses import FileResponse
 
 from app import db
 from app.collector import META_LAST_COLLECTED, META_LAST_FALLBACK
@@ -31,6 +31,7 @@ STALE_AFTER = timedelta(hours=2)
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
 settings = load_settings()
+STATIC_INDEX = Path(__file__).with_name("static") / "index.html"
 
 
 @asynccontextmanager
@@ -52,21 +53,9 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="Wave 바람길", version=VERSION, lifespan=lifespan)
 
 
-@app.get("/", response_class=HTMLResponse)
-async def index() -> str:
-    return """<!doctype html>
-<html lang="ko">
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Wave 바람길</title>
-</head>
-<body>
-    <h1>Wave 바람길</h1>
-    <p>바람 데이터로 잇는 우리 동네 공기 예보 × AI 데이터센터 RE100 시뮬레이터 (개발 중)</p>
-    <p><a href="/api/health">/api/health</a> · <a href="/api/observations">/api/observations</a></p>
-</body>
-</html>"""
+@app.get("/", response_class=FileResponse)
+async def index() -> FileResponse:
+    return FileResponse(STATIC_INDEX, media_type="text/html; charset=utf-8")
 
 
 @app.get("/health", include_in_schema=False)
