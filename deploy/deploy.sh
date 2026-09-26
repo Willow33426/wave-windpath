@@ -29,6 +29,11 @@ else
     .venv/bin/supervisord -c "$CONF"
 fi
 
+# 서버가 재부팅돼도 앱이 다시 뜨도록 @reboot 한 줄을 둔다(같은 항목은 교체, 다른 항목은 그대로).
+BOOT="@reboot cd $ROOT && $ROOT/.venv/bin/supervisord -c $ROOT/$CONF >> $ROOT/deploy/.run/boot.log 2>&1"
+( crontab -l 2>/dev/null | grep -v "deploy/supervisord.conf"; echo "$BOOT" ) | crontab - \
+    || echo "crontab 등록 실패: README '재부팅 후 자동 실행'을 따라 직접 추가하세요."
+
 echo "[4/5] 첫 화면 교체와 웹 루트 노출 차단"
 # Nginx가 이 폴더를 그대로 공개한다. 첫 화면(index.html)만 루트에 두고
 # 코드·DB·가상환경·.git은 팀 계정만 읽을 수 있게 막는다.

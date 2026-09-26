@@ -111,6 +111,17 @@ class CitizenAiForecastTest(unittest.TestCase):
         self.assertTrue(all(datetime.fromisoformat(item["forecast_time"]) > self.now for item in result["forecast"]))
         self.assertIn("sectors", result["evidence"])
 
+    def test_ai_input_ignores_leftover_fixture_in_live_mode(self):
+        # 실데이터 수집 중에는 남은 fixture(99㎍/㎥)가 AI 입력(현재값)으로 들어가지 않는다
+        leftover = self.now.replace(minute=15)
+        db.upsert_records(self.conn, [
+            Record("airkorea", "suncheon", "observation", leftover, leftover, "pm25", 99, "ug/m3", "fixture"),
+        ], self.now)
+        result = build_citizen_forecast(self.conn, self.settings, now=self.now)
+        self.assertEqual(result["model"]["name"], ridge.MODEL_NAME)
+        self.assertLess(result["current"]["pm25"], 20)
+        self.assertTrue(all(item["pm25_predicted"] < 40 for item in result["forecast"]))
+
     def test_windows_skip_industrial_wind_hours(self):
         result = build_citizen_forecast(self.conn, self.settings, now=self.now)
         windows = result["recommendation"]["ventilation"]["windows"]
