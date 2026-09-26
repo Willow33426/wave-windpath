@@ -16,6 +16,9 @@ from app.config import Settings
 
 MAX_TEXT = 300
 MODEL_NAME = re.compile(r"^[A-Za-z0-9._-]{1,80}$")
+BANNED_WORDS = ("확실", "반드시", "보장", "원인", "배출", "유발", "오염원")
+FACILITY_WORDS = ("산단", "산업단지", "공장", "제철")
+FACILITY_CAUSE_WORDS = ("때문", "탓", "영향")
 SYSTEM_PROMPT = (
     "당신은 순천시 대기질 안내 문구 편집자입니다. 제공된 문장만 자연스럽게 다듬어 "
     "한국어 2~3문장으로 답하세요. 수치·시각·등급·풍향을 바꾸거나 새로운 사실을 "
@@ -91,13 +94,15 @@ def _valid_answer(answer: str, template: str, data: dict) -> bool:
         return False
     if "참고" not in text or not any(label in text for label in ("PM2.5", "초미세먼지")):
         return False
-    if any(word in text for word in ("확실", "반드시", "보장")):
+    # 부정문 판별은 "좋지 않습니다" 같은 문장으로 쉽게 우회되므로, 원인 표현은
+    # 안전해 보이는 문장이라도 쓰지 않는다. 시설 이름은 템플릿 권고("산단 쪽 바람…")에
+    # 있을 때만, 인과로 읽히는 표현 없이 쓸 수 있다.
+    if any(word in text for word in BANNED_WORDS):
         return False
-    causal_claim = re.search(r"산단[^.!?。]{0,24}(?:원인|때문|유발|오염원|배출)", text)
-    if causal_claim:
-        claim_context = text[causal_claim.start():causal_claim.end() + 24]
-        if not any(negation in claim_context for negation in ("아니", "않", "뜻하지", "단정하지")):
-            return False
+    facilities = [word for word in FACILITY_WORDS if word in text]
+    if facilities and (any(word not in template for word in facilities)
+                       or any(word in text for word in FACILITY_CAUSE_WORDS)):
+        return False
     current = data.get("current") or {}
     forecast = next((item for item in data.get("forecast", []) if item.get("pm25_predicted") is not None), None)
     required = []
@@ -109,10 +114,12 @@ def _valid_answer(answer: str, template: str, data: dict) -> bool:
     if forecast:
         required += ["예측", f"{forecast['pm25_predicted']:g}", forecast.get("air_quality") or ""]
         try:
-            forecast_hour = f"{datetime.fromisoformat(forecast['forecast_time']).hour}시"
+            forecast_hour = datetime.fromisoformat(forecast["forecast_time"]).hour
         except (KeyError, TypeError, ValueError):
-            forecast_hour = ""
-        required.append(forecast_hour)
+            forecast_hour = None
+        # "4시"가 "14시" 안에서 찾아지지 않도록 앞자리가 숫자가 아닌 경우만 인정한다.
+        if forecast_hour is not None and not re.search(rf"(?<!\d){forecast_hour}시", text):
+            return False
     if any(value and value not in text for value in required):
         return False
     # 템플릿 밖의 숫자·시간을 추가한 답은 사용하지 않는다.

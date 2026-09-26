@@ -58,16 +58,38 @@ class BriefingTest(unittest.TestCase):
         )
         self.assertTrue(_valid_answer(reply, template_briefing(SAMPLE), SAMPLE))
 
-    def test_allows_safe_industrial_wind_but_rejects_causal_claim(self):
-        safe = (
-            "9월 26일 13시 순천 PM2.5는 20㎍/㎥로 보통이며 동남동풍입니다. "
-            "14시 예측값은 24㎍/㎥로 보통이고 산단 방향 바람은 오염 원인을 뜻하지 않습니다. "
-            "예측은 참고용입니다."
-        )
-        unsafe = safe.replace("오염 원인을 뜻하지 않습니다", "오염 원인입니다")
+    def test_rejects_industrial_or_cause_wording(self):
+        # 템플릿에 없는 시설·원인 표현은 부정문이어도 템플릿으로 돌아간다.
+        head = ("9월 26일 13시 순천 PM2.5는 20㎍/㎥로 보통이며 동남동풍입니다. "
+                "14시 예측값은 24㎍/㎥로 보통이며 ")
         template = template_briefing(SAMPLE)
-        self.assertTrue(_valid_answer(safe, template, SAMPLE))
-        self.assertFalse(_valid_answer(unsafe, template, SAMPLE))
+        self.assertTrue(_valid_answer(f"{head}짧게 환기하세요. 예측은 참고용입니다.", template, SAMPLE))
+        for claim in ("산단 배출 때문에 공기가 좋지 않습니다",
+                      "산업단지가 오염 원인입니다",
+                      "오염 원인은 산단입니다",
+                      "산단 방향 바람은 오염 원인을 뜻하지 않습니다"):
+            with self.subTest(claim=claim):
+                self.assertFalse(_valid_answer(f"{head}{claim}. 예측은 참고용입니다.", template, SAMPLE))
+
+    def test_industrial_wind_advice_can_be_paraphrased_without_cause(self):
+        data = {**SAMPLE, "recommendation": {"summary": "산단 쪽 바람, 짧게만 환기하세요"}}
+        reply = ("9월 26일 13시 순천 초미세먼지는 20㎍/㎥로 보통이며 동남동풍입니다. "
+                 "14시 예측값은 24㎍/㎥로 보통이니 참고용으로 보세요. {advice}.")
+        template = template_briefing(data)
+        self.assertTrue(_valid_answer(reply.format(advice="산단 쪽 바람이라 짧게만 환기하세요"), template, data))
+        self.assertFalse(_valid_answer(reply.format(advice="산단 쪽 바람 때문에 공기가 탁합니다"), template, data))
+        self.assertFalse(_valid_answer(reply.format(advice="산업단지 쪽 바람이라 짧게만 환기하세요"), template, data))
+
+    def test_forecast_hour_is_not_matched_inside_another_hour(self):
+        data = {**SAMPLE, "observed_at": "2026-09-26T03:00:00+09:00",
+                "current": {"pm25": 14.0, "air_quality": "좋음", "wind_direction_label": "동남동"},
+                "forecast": [{"forecast_time": "2026-09-26T04:00:00+09:00",
+                              "pm25_predicted": 16.0, "air_quality": "보통"}]}
+        reply = ("9월 26일 3시 순천 초미세먼지는 14㎍/㎥로 좋음이며 동남동풍입니다. "
+                 "{hour} 예측값은 16㎍/㎥로 보통이니 참고용으로 보세요. 짧게 환기하세요.")
+        template = template_briefing(data)
+        self.assertTrue(_valid_answer(reply.format(hour="4시"), template, data))
+        self.assertFalse(_valid_answer(reply.format(hour="14시"), template, data))
 
     def test_budget_blocks_excess_calls(self):
         ticks = [0.0]
