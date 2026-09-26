@@ -123,7 +123,11 @@
         .hours { display: grid; gap: 9px; }
         .hour { display: grid; grid-template-columns: 52px 1fr 68px; align-items: center; gap: 10px; min-height: 43px; }
         .bar-track { height: 12px; overflow: hidden; border-radius: 999px; background: #dce9e7; }
-        .bar { height: 100%; border-radius: inherit; background: linear-gradient(90deg, #45a46f, #d99a31); }
+        .bar { height: 100%; border-radius: inherit; background: #9fb3ae; }
+        .bar.good { background: #3f9d63; }
+        .bar.warn { background: #d9a431; }
+        .bar.bad { background: #d0543f; }
+        .bar.worst { background: #8e2f8f; }
         .hour small { color: var(--muted); font-weight: 700; }
         .reason { margin: 0; color: var(--muted); line-height: 1.6; }
 
@@ -156,9 +160,9 @@
 <body>
     <main>
         <header class="top">
-            <p class="eyebrow">Wave 바람길 · 시민 모드 MVP</p>
-            <h1>순천 12시간 바람·대기질</h1>
-            <p class="subtitle">풍향과 PM2.5 예측을 함께 보고 환기와 외출 판단을 돕습니다. 결과는 참고용이며 특정 시설과 대기질 사이의 인과관계를 단정하지 않습니다.</p>
+            <p class="eyebrow">Wave 바람길 · 순천</p>
+            <h1>지금 환기해도 될까요?</h1>
+            <p class="subtitle">바람이 어디서 불어오는지와 12시간 미세먼지 예측으로 환기·외출 시간을 알려 드려요.</p>
             <nav class="toolbar" aria-label="개발 상태 확인">
                 <a href="/?debug=1" data-state="live">실제 API</a>
                 <a href="/?debug=1&amp;state=normal" data-state="normal">명세 예시</a>
@@ -202,7 +206,17 @@
             return "";
         };
 
-        const influenceLabel = (level) => ({ low: "낮음", medium: "주의", high: "높음", unknown: "판단 불가" })[level] || "판단 불가";
+        // 영향의 크기가 아니라 바람이 산단 방향에서 오는지만 표현한다.
+        const influenceLabel = (level) => ({ low: "거의 없음", medium: "약하게 있음", high: "있음", unknown: "판단 불가" })[level] || "판단 불가";
+
+        // 막대는 예보끼리의 상대 비교가 아니라 PM2.5 등급 경계(15·35·75㎍/㎥) 기준 절대 눈금이다.
+        const gradeClass = (value) => value <= 15 ? "good" : value <= 35 ? "warn" : value <= 75 ? "bad" : "worst";
+
+        const modelLabel = (name) => {
+            if (!name) return "정보 없음";
+            if (name.startsWith("ml-")) return "AI 예측 모델";
+            return ({ "baseline-persistence": "최근 관측값 유지(기준선)", "baseline-wind-rule": "풍향 보정 규칙(기준선)" })[name] || name;
+        };
 
         const renderState = (title, message, extra = "") => {
             root.innerHTML = `<div class="panel state"><div><strong>${escapeText(title)}</strong><p>${escapeText(message)}</p>${extra}</div></div>`;
@@ -216,18 +230,21 @@
                 return;
             }
 
-            const maxPm25 = Math.max(...forecast.map((item) => Number(item.pm25_predicted) || 0), 1);
             const hours = forecast.map((item) => {
-                const value = item.pm25_predicted == null ? "없음" : `${item.pm25_predicted}㎍/㎥`;
-                const width = item.pm25_predicted == null ? 0 : Math.max(8, Math.round((item.pm25_predicted / maxPm25) * 100));
-                return `<div class="hour"><small>${formatTime(item.forecast_time)}</small><div class="bar-track" aria-label="PM2.5 ${escapeText(value)}"><div class="bar" style="width:${width}%"></div></div><small>${escapeText(value)}</small></div>`;
+                const pm = item.pm25_predicted;
+                const value = pm == null ? "없음" : `${pm}㎍/㎥`;
+                const width = pm == null ? 0 : Math.min(100, Math.max(4, Math.round((pm / 75) * 100)));
+                return `<div class="hour"><small>${formatTime(item.forecast_time)}</small><div class="bar-track" aria-label="PM2.5 ${escapeText(value)}"><div class="bar ${pm == null ? "" : gradeClass(pm)}" style="width:${width}%"></div></div><small>${escapeText(value)}</small></div>`;
             }).join("");
 
+            // 비어 있는 부가 정보에 '정보 없음'이 붙지 않도록 값이 있을 때만 이어 붙인다.
             const sourceItems = (data.data_sources || []).map((source) => {
-                const when = source.observed_at ? ` · 관측 ${formatUpdated(source.observed_at)}` : "";
-                const note = source.note ? ` · ${source.note}` : "";
-                return `<li><strong>${escapeText(source.provider)}</strong> ${escapeText(source.name)}${escapeText(when)}${escapeText(note)}</li>`;
+                const when = source.observed_at ? ` · 관측 ${escapeText(formatUpdated(source.observed_at))}` : "";
+                const note = source.note ? ` · ${escapeText(source.note)}` : "";
+                return `<li><strong>${escapeText(source.provider)}</strong> ${escapeText(source.name)}${when}${note}</li>`;
             }).join("");
+            const station = data.location?.air_station ? ` · ${escapeText(data.location.air_station)} 측정소` : "";
+            const mae = data.model?.mae_validation == null ? "" : ` · 검증 평균 오차 ${escapeText(data.model.mae_validation)}㎍/㎥`;
 
             const influence = current?.industrial_influence || {};
             const ventilation = data.recommendation?.ventilation || {};
@@ -237,20 +254,20 @@
                 : "정보 없음";
 
             root.innerHTML = `
-                ${isDemo ? '<div class="notice">API 명세 검토용 예시 데이터입니다. 실제 관측값이 아닙니다.</div>' : ""}
+                ${isDemo ? '<div class="notice">산단 쪽 바람이 불 때의 화면 예시입니다. 실제 관측값이 아닙니다.</div>' : ""}
                 ${data.is_fallback ? '<div class="notice">최신 자료를 받지 못해 이전 자료 또는 대체 자료를 사용했습니다.</div>' : ""}
                 <article class="panel summary">
-                    <div class="summary-head"><div><p class="label">현재 위치</p><p class="location">${escapeText(data.location?.name)}</p></div><div class="badge ${qualityClass(current?.air_quality)}">${escapeText(current?.air_quality)}</div></div>
+                    <div class="summary-head"><div><p class="label">측정 지역${station}</p><p class="location">${escapeText(data.location?.name)}</p></div><div class="badge ${qualityClass(current?.air_quality)}">${escapeText(current?.air_quality)}</div></div>
                     <div class="metrics">
                         <div class="metric"><span class="label">현재 PM2.5</span><strong>${current?.pm25 == null ? "정보 없음" : `${escapeText(current.pm25)}㎍/㎥`}</strong></div>
                         <div class="metric"><span class="label">풍향·풍속</span><strong>${escapeText(wind)}</strong></div>
-                        <div class="metric"><span class="label">산단 방향 영향 가능성</span><strong>${escapeText(influenceLabel(influence.level))}</strong></div>
+                        <div class="metric"><span class="label">산단 쪽에서 오는 바람</span><strong>${escapeText(influenceLabel(influence.level))}</strong></div>
                     </div>
                     <div class="recommendations"><div class="recommendation"><strong>환기</strong>${escapeText(ventilation.text)}</div><div class="recommendation"><strong>외출</strong>${escapeText(outdoor.text)}</div></div>
-                    <p class="reason">갱신 ${formatUpdated(data.updated_at)} · ${escapeText(influence.note)}</p>
+                    <p class="reason">관측 ${formatUpdated(data.observed_at)} 기준 · ${escapeText(influence.note)}</p>
                 </article>
                 <article class="panel section"><h2>향후 ${forecast.length}시간 PM2.5 예측</h2><div class="hours">${hours || '<p class="reason">예측 데이터가 없습니다.</p>'}</div></article>
-                <article class="panel section"><h2>판단 근거와 한계</h2><p class="reason">${escapeText(data.reason)}</p><p class="reason">모델: ${escapeText(data.model?.name)} · 검증 MAE: ${data.model?.mae_validation == null ? "정보 없음" : escapeText(data.model.mae_validation)}</p><ul class="source-list">${sourceItems}</ul></article>`;
+                <article class="panel section"><h2>판단 근거와 한계</h2><p class="reason">${escapeText(data.reason)}</p><p class="reason">예측 방식: ${escapeText(modelLabel(data.model?.name))}${mae}</p><ul class="source-list">${sourceItems}</ul></article>`;
         };
 
         const now = new Date();
@@ -270,7 +287,7 @@
         if (state === "normal") renderForecast(demoPayload(false), true);
         else if (state === "fallback") renderForecast(demoPayload(true), true);
         else if (state === "empty") renderState("표시할 예보가 없습니다", "관측 또는 예측 데이터가 들어오면 자동으로 표시됩니다.");
-        else if (state === "error") renderState("예보를 불러오지 못했습니다", "서버 상태를 확인한 뒤 잠시 후 다시 시도해 주세요.");
+        else if (state === "error") renderState("예보를 불러오지 못했어요", "잠시 후 새로고침해 주세요.");
         else {
             fetch("/api/citizen/forecast?location=suncheon&hours=12")
                 .then((response) => {
@@ -278,10 +295,11 @@
                     return response.json();
                 })
                 .then((data) => renderForecast(data, false))
+                // 공개 화면에는 개발용 오류 내용을 보이지 않고, debug에서만 원인을 함께 표시한다.
                 .catch((error) => renderState(
-                    "시민 예보 API 연결 대기",
-                    `${error.message}. 현재 백엔드에는 수집 API가 준비되어 있으며 시민 예보 응답을 연결하는 중입니다.`,
-                    debug ? '<p style="margin-top:12px"><a href="/?debug=1&amp;state=normal">명세 예시 화면 보기</a></p>' : "",
+                    "예보를 불러오지 못했어요",
+                    "잠시 후 새로고침해 주세요.",
+                    debug ? `<p style="margin-top:12px">${escapeText(error.message)} · <a href="/?debug=1&amp;state=normal">예시 화면 보기</a></p>` : "",
                 ));
         }
     </script>

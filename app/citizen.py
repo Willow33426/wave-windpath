@@ -85,15 +85,16 @@ def _influence(score: float, facilities: list[str], wind_label: str | None,
             "level": "low" if wind_label else "unknown",
             "score": score if wind_label else None,
             "upwind_facilities": [],
-            "note": "현재 풍향에서는 산단 방향 영향 신호가 낮습니다." if wind_label else "풍향 자료가 없어 판단하지 못했습니다.",
+            "note": "지금은 산단 방향(동~동남동)에서 부는 바람이 아닙니다." if wind_label else "풍향 자료가 없어 판단하지 못했습니다.",
         }
     level = "high" if score >= 0.6 else "medium" if score >= 0.3 else "low"
-    speed = "" if wind_speed is None else f" {wind_speed:g} m/s"
+    speed = "" if wind_speed is None else f" {wind_speed:g}m/s"
+    # 바람의 방향만 말하고, 시설이 대기질의 원인이라고 말하지 않는다.
     return {
         "level": level,
         "score": score,
         "upwind_facilities": facilities,
-        "note": f"{wind_label or '해당'}풍{speed}에서 산단 방향과 겹치는 참고 신호가 있습니다.",
+        "note": f"{wind_label or '해당'}풍{speed}: 산단 방향에서 바람이 불어옵니다. 오염 원인을 뜻하지는 않습니다.",
     }
 
 

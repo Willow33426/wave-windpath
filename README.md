@@ -164,7 +164,17 @@ chmod 600 app/.env
 .venv/bin/supervisord -c deploy/supervisord.conf
 ```
 
-코드를 바꾼 뒤에는 설정을 반영하고 앱을 재시작합니다.
+코드를 바꾼 뒤에는 아래 한 줄로 반영합니다. 최신 `main` 받기, 의존성 설치, 앱 재시작,
+시민 화면(`app/static/index.html`)을 웹 루트 `index.html`로 복사, 코드·DB·`.git` 공개 차단, 상태 확인까지 차례로 합니다.
+
+```sh
+git pull --ff-only origin main && sh deploy/deploy.sh
+```
+
+대회 서버의 Nginx는 `/home/a8/html/`을 그대로 공개하고 `/api/`만 앱으로 넘깁니다.
+그래서 첫 화면은 루트의 `index.html`이고, 나머지 폴더는 `chmod 700`으로 팀 계정만 읽게 둡니다.
+
+수동으로 재시작할 때는 다음을 씁니다.
 
 ```sh
 .venv/bin/supervisorctl -c deploy/supervisord.conf reread
