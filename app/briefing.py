@@ -89,21 +89,30 @@ def _valid_answer(answer: str, template: str, data: dict) -> bool:
         return False
     if not 2 <= len(re.findall(r"[.!?。](?:\s|$)", text)) <= 3:
         return False
-    if "참고" not in text or "PM2.5" not in text:
+    if "참고" not in text or not any(label in text for label in ("PM2.5", "초미세먼지")):
         return False
-    if any(word in text for word in ("확실", "반드시", "보장", "산단", "원인")):
+    if any(word in text for word in ("확실", "반드시", "보장")):
         return False
+    causal_claim = re.search(r"산단[^.!?。]{0,24}(?:원인|때문|유발|오염원|배출)", text)
+    if causal_claim:
+        claim_context = text[causal_claim.start():causal_claim.end() + 24]
+        if not any(negation in claim_context for negation in ("아니", "않", "뜻하지", "단정하지")):
+            return False
     current = data.get("current") or {}
     forecast = next((item for item in data.get("forecast", []) if item.get("pm25_predicted") is not None), None)
     required = []
     if current.get("pm25") is not None:
-        required += ["관측", f"{current['pm25']:g}", current.get("air_quality") or "",
+        required += [f"{current['pm25']:g}", current.get("air_quality") or "",
                      _when(current.get("pm25_observed_at") or data.get("observed_at")) or ""]
     if current.get("wind_direction_label"):
         required.append(current["wind_direction_label"])
     if forecast:
-        required += ["예측", f"{forecast['pm25_predicted']:g}", forecast.get("air_quality") or "",
-                     _when(forecast.get("forecast_time")) or ""]
+        required += ["예측", f"{forecast['pm25_predicted']:g}", forecast.get("air_quality") or ""]
+        try:
+            forecast_hour = f"{datetime.fromisoformat(forecast['forecast_time']).hour}시"
+        except (KeyError, TypeError, ValueError):
+            forecast_hour = ""
+        required.append(forecast_hour)
     if any(value and value not in text for value in required):
         return False
     # 템플릿 밖의 숫자·시간을 추가한 답은 사용하지 않는다.

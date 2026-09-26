@@ -5,7 +5,7 @@ import json
 import unittest
 from unittest.mock import AsyncMock, patch
 
-from app.briefing import CallBudget, _call_llm, build_briefing, template_briefing
+from app.briefing import CallBudget, _call_llm, _valid_answer, build_briefing, template_briefing
 from app.config import Settings
 
 
@@ -49,6 +49,25 @@ class BriefingTest(unittest.TestCase):
                 with patch("app.briefing._call_llm", new_callable=AsyncMock, side_effect=reply if isinstance(reply, Exception) else None, return_value=reply if isinstance(reply, str) else None):
                     result = asyncio.run(build_briefing(SAMPLE, settings, CallBudget()))
                 self.assertEqual(result["source"], "template")
+
+    def test_accepts_verified_gemini_paraphrase(self):
+        reply = (
+            "9월 26일 13시 순천의 초미세먼지 농도는 20㎍/㎥로 보통 수준이며, "
+            "동남동풍이 불고 있습니다. 14시 예측값도 24㎍/㎥로 보통이 예상되나, "
+            "예측치는 참고용으로 확인하시기 바랍니다. 짧게 환기하는 것을 권장합니다."
+        )
+        self.assertTrue(_valid_answer(reply, template_briefing(SAMPLE), SAMPLE))
+
+    def test_allows_safe_industrial_wind_but_rejects_causal_claim(self):
+        safe = (
+            "9월 26일 13시 순천 PM2.5는 20㎍/㎥로 보통이며 동남동풍입니다. "
+            "14시 예측값은 24㎍/㎥로 보통이고 산단 방향 바람은 오염 원인을 뜻하지 않습니다. "
+            "예측은 참고용입니다."
+        )
+        unsafe = safe.replace("오염 원인을 뜻하지 않습니다", "오염 원인입니다")
+        template = template_briefing(SAMPLE)
+        self.assertTrue(_valid_answer(safe, template, SAMPLE))
+        self.assertFalse(_valid_answer(unsafe, template, SAMPLE))
 
     def test_budget_blocks_excess_calls(self):
         ticks = [0.0]
