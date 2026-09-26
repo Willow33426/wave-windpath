@@ -78,7 +78,9 @@ def _collect_station(station: Station, settings: Settings,
             records += parser(payload, station.key)
         except UpstreamError as exc:
             logger.warning("%s 수집 실패(%s) → fixture 사용: %s", caller, station.key, exc)
-            records += _rebase(parser(load_fixture(fixture_name), station.key), now)
+            fixture_records = parser(load_fixture(fixture_name), station.key)
+            fixture_records = [replace(record, data_origin="fixture") for record in fixture_records]
+            records += _rebase(fixture_records, now)
             used_fallback = True
 
     return records, used_fallback

@@ -2,6 +2,7 @@
 import pathlib
 import sys
 import unittest
+from unittest import mock
 from datetime import datetime, timedelta, timezone
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
@@ -137,6 +138,19 @@ class PredictInterfaceTest(unittest.TestCase):
     def test_empty_features(self):
         self.assertEqual(predict({}), [])
 
+    def test_logs_exception_before_persistence_fallback(self):
+        features = {
+            "target_history": history([20, 22, 24]),
+            "upwind_history": history([40]),
+            "weather": weather(101, 3.0),
+        }
+        with mock.patch("app.forecast.baseline.wind_rule_forecast", side_effect=RuntimeError("boom")):
+            with self.assertLogs("app.forecast.baseline", level="ERROR") as captured:
+                items = predict(features)
+        self.assertEqual(items[0]["model"], "baseline-persistence")
+        self.assertIn("persistence 기준선으로 폴백", captured.output[0])
+        self.assertIn("RuntimeError: boom", "\n".join(captured.output))
+
 
 class EvaluateScriptTest(unittest.TestCase):
     """평가 스크립트의 MAE 계산이 시간 순서를 지키는지."""
@@ -155,6 +169,26 @@ class EvaluateScriptTest(unittest.TestCase):
         self.assertIn("baseline-persistence", result["overall"])
         self.assertIn("baseline-wind-rule", result["overall"])
         self.assertTrue(all(v is None or v >= 0 for v in result["overall"].values()))
+        self.assertEqual(
+            result["overall"]["baseline-persistence"],
+            result["overall"]["baseline-wind-rule"],
+        )
+
+    def test_weather_uses_only_forecasts_issued_by_origin(self):
+        sys.path.insert(0, str(ROOT / "scripts"))
+        from evaluate_baseline import _weather_available_at  # noqa: E402
+
+        target = T0 + timedelta(hours=1)
+        forecasts = [
+            {"issued_at": T0 - timedelta(hours=1), "target_time": target,
+             "wind_direction": 101.0, "wind_speed": 3.0},
+            {"issued_at": T0 + timedelta(minutes=1), "target_time": target,
+             "wind_direction": 300.0, "wind_speed": 4.0},
+        ]
+        points = _weather_available_at(forecasts, T0, hours=6)
+
+        self.assertEqual(len(points), 1)
+        self.assertEqual(points[0].wind_direction, 101.0)
 
 
     def test_non_finite_csv_values_are_treated_as_missing(self):

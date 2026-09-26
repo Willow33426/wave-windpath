@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS measurements (
     metric      TEXT NOT NULL,
     value       REAL NOT NULL,
     unit        TEXT NOT NULL,
+    data_origin TEXT NOT NULL DEFAULT 'live',
     collected_at TEXT NOT NULL,
     PRIMARY KEY (source, station, kind, target_time, metric)
 );
@@ -37,13 +38,19 @@ def connect(db_path: Path | str) -> sqlite3.Connection:
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL")
     conn.executescript(SCHEMA)
+    columns = {row["name"] for row in conn.execute("PRAGMA table_info(measurements)")}
+    if "data_origin" not in columns:
+        with conn:
+            conn.execute(
+                "ALTER TABLE measurements ADD COLUMN data_origin TEXT NOT NULL DEFAULT 'live'"
+            )
     return conn
 
 
 def upsert_records(conn: sqlite3.Connection, records: Iterable[Record], collected_at: datetime) -> int:
     rows = [
         (r.source, r.station, r.kind, r.base_time.isoformat(), r.target_time.isoformat(),
-         r.metric, float(r.value), r.unit, collected_at.isoformat())
+         r.metric, float(r.value), r.unit, r.data_origin, collected_at.isoformat())
         for r in records
     ]
     if not rows:
@@ -51,10 +58,11 @@ def upsert_records(conn: sqlite3.Connection, records: Iterable[Record], collecte
     with conn:
         conn.executemany(
             "INSERT INTO measurements "
-            "(source, station, kind, base_time, target_time, metric, value, unit, collected_at) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) "
+            "(source, station, kind, base_time, target_time, metric, value, unit, data_origin, collected_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
             "ON CONFLICT(source, station, kind, target_time, metric) DO UPDATE SET "
-            "value=excluded.value, base_time=excluded.base_time, collected_at=excluded.collected_at",
+            "value=excluded.value, base_time=excluded.base_time, "
+            "data_origin=excluded.data_origin, collected_at=excluded.collected_at",
             rows,
         )
     return len(rows)
@@ -75,6 +83,7 @@ def query_measurements(
     kind: str | None = None,
     since: datetime | None = None,
     limit: int = 500,
+    include_fixture: bool = True,
 ) -> list[sqlite3.Row]:
     sql = ["SELECT * FROM measurements WHERE 1=1"]
     args: list = []
@@ -85,6 +94,8 @@ def query_measurements(
     if since is not None:
         sql.append("AND target_time >= ?")
         args.append(since.isoformat())
+    if not include_fixture:
+        sql.append("AND data_origin != 'fixture'")
     sql.append("ORDER BY target_time DESC LIMIT ?")
     args.append(int(limit))
     return list(conn.execute(" ".join(sql), args))
