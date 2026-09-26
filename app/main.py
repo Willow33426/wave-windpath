@@ -130,15 +130,16 @@ async def observations(
 async def citizen_forecast(
     location: str = Query("suncheon"),
     hours: int = Query(12),
+    sensitive: bool = Query(False, description="민감군(아이·어르신·호흡기 질환) 권고"),
 ) -> dict:
     """시민 화면에 필요한 현재 상태·12시간 예측·권고를 한 번에 반환한다."""
-    key = (location, hours)
+    key = (location, hours, sensitive)
     version = db.get_meta(app.state.conn, META_LAST_COLLECTED)
     cached = citizen_cache.get(key, version)
     if cached is not None:
         return cached
     try:
-        result = build_citizen_forecast(app.state.conn, settings, location, hours)
+        result = build_citizen_forecast(app.state.conn, settings, location, hours, sensitive=sensitive)
     except ValueError as exc:
         field = "location" if location != "suncheon" else "hours"
         raise HTTPException(status_code=400, detail={

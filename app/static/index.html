@@ -72,6 +72,10 @@
         .grade.good { background: var(--good); } .grade.fair { background: var(--fair); } .grade.bad { background: var(--bad); }
         .grade.worst { color: #fff; background: var(--worst); } .grade.none { color: var(--text); }
         .on { color: var(--sodium); }
+        .sens { display: inline-flex; align-items: center; gap: 8px; margin: 0 0 14px; padding: 7px 12px; border: 1px solid var(--line); border-radius: 999px; color: var(--soft); background: rgb(17 26 34 / .75); font: inherit; font-size: .8rem; font-weight: 700; cursor: pointer; }
+        .sens::before { content: ""; width: 26px; height: 14px; border-radius: 999px; background: #3A4750; box-shadow: inset 2px 0 0 4px #3A4750, inset 12px 0 0 0 var(--soft); transition: box-shadow .15s; }
+        .sens[aria-pressed="true"] { color: var(--night); background: var(--air); border-color: var(--air); }
+        .sens[aria-pressed="true"]::before { background: var(--night); box-shadow: inset 12px 0 0 0 var(--night), inset 26px 0 0 0 var(--air); }
         .meta { margin: 14px 0 0; color: var(--muted); font-size: .8rem; line-height: 1.65; }
 
         main { display: grid; gap: 14px; max-width: 560px; margin: 0 auto; padding: 6px 16px 36px; }
@@ -154,6 +158,10 @@
         nav.querySelectorAll("[data-state]").forEach((link) => {
             link.setAttribute("aria-current", link.dataset.state === state ? "true" : "false");
         });
+
+        // 민감군(아이·어르신·호흡기 질환) 기준은 이 기기에만 기억한다.
+        let sensitive = false;
+        try { sensitive = window.localStorage.getItem("wave.sensitive") === "1"; } catch (error) { sensitive = false; }
 
         const esc = (value, empty = "정보 없음") => {
             const span = document.createElement("span");
@@ -283,6 +291,7 @@
             Field.run({ dir: current.wind_direction ?? null, speed: current.wind_speed_mps ?? 0, industrial: on });
             const wind = current.wind_direction_label ? `${current.wind_direction_label}풍 ${current.wind_speed_mps ?? "–"}m/s` : "정보 없음";
             $("#hero-body").innerHTML = `
+                <button class="sens" type="button" aria-pressed="${sensitive}" title="아이·어르신·호흡기 질환이 있으면 권고를 한 단계 더 조심스럽게 보여 줘요">민감군 기준${sensitive ? " 켜짐" : "으로 보기"}</button><br>
                 ${isDemo ? '<span class="pill">산단 쪽 바람 예시 화면 · 실제 관측 아님</span>' : ""}
                 ${data.is_fallback ? '<span class="pill">최신 자료 지연 · 대체 자료 사용 중</span>' : ""}
                 <h1 class="verdict">${esc(reco.summary, "예보를 확인하세요")}</h1>
@@ -418,19 +427,21 @@
                 })),
                 recommendation: fallback
                     ? { ventilation: { status: "caution", windows: [], text: "최신 자료가 복구되면 다시 확인하세요." }, outdoor: { text: "현재 정보는 참고용으로만 확인하세요." }, summary: "자료를 기다리는 중이에요" }
-                    : { ventilation: { status: "caution", windows: [{ start: at(9), end: at(13) }], text: "산단 방향(동~동남동)에서 바람이 불고 있어요. 바람이 북쪽으로 바뀌는 밤에 환기하세요." }, outdoor: { text: "야외 활동하기 무난해요." }, summary: "산단 쪽 바람, 짧게만 환기하세요" },
+                    : sensitive
+                        ? { ventilation: { status: "avoid", windows: [{ start: at(9), end: at(13) }], text: "산단 방향(동~동남동)에서 바람이 불고 있어요. 민감군은 바람이 북쪽으로 바뀌는 밤에 환기하세요." }, outdoor: { text: "'보통'인 시간이 있어요. 민감군은 긴 야외 활동을 줄이세요." }, summary: "산단 쪽 바람, 창문을 닫아 두세요" }
+                        : { ventilation: { status: "caution", windows: [{ start: at(9), end: at(13) }], text: "산단 방향(동~동남동)에서 바람이 불고 있어요. 바람이 북쪽으로 바뀌는 밤에 환기하세요." }, outdoor: { text: "야외 활동하기 무난해요." }, summary: "산단 쪽 바람, 짧게만 환기하세요" },
                 reason: "화면 확인용 예시입니다. 특정 시설과의 인과관계를 뜻하지 않습니다.",
                 model: fallback ? { name: "baseline-persistence" } : { name: "ml-ridge", mae_validation: 3.39, mae_persistence: 3.78, improvement_pct: 10.5, validation_from: "2026-08-25T00:00:00+09:00", validation_to: "2026-09-20T23:00:00+09:00" },
                 evidence: fallback ? null : { period_from: "2026-06-23", period_to: "2026-09-20", sectors: [["북", 14.6], ["북동", 10.8], ["동", 11.8], ["남동", 12.2], ["남", 11.4], ["남서", 8.2], ["서", 9.6], ["북서", 10.2]].map(([name, v]) => ({ name, pm25_mean: v })), industrial: { pm25_mean: 12.0 }, other: { pm25_mean: 10.9 }, note: "여름철(6~9월) 관측의 단순 평균 비교입니다. 인과 관계를 뜻하지 않습니다." },
             };
         };
 
-        if (state === "normal") renderForecast(demoPayload(false), true);
-        else if (state === "fallback") renderForecast(demoPayload(true), true);
-        else if (state === "empty") renderState("표시할 예보가 없어요", "관측 자료가 들어오면 자동으로 표시됩니다.");
-        else if (state === "error") renderState("예보를 불러오지 못했어요", "잠시 후 새로고침해 주세요.");
-        else {
-            fetch("/api/citizen/forecast?location=suncheon&hours=12")
+        const load = () => {
+            if (state === "normal") return renderForecast(demoPayload(false), true);
+            if (state === "fallback") return renderForecast(demoPayload(true), true);
+            if (state === "empty") return renderState("표시할 예보가 없어요", "관측 자료가 들어오면 자동으로 표시됩니다.");
+            if (state === "error") return renderState("예보를 불러오지 못했어요", "잠시 후 새로고침해 주세요.");
+            return fetch(`/api/citizen/forecast?location=suncheon&hours=12${sensitive ? "&sensitive=true" : ""}`)
                 .then((response) => {
                     if (!response.ok) throw new Error(`예보 API 응답 오류 (${response.status})`);
                     return response.json();
@@ -442,7 +453,15 @@
                     "잠시 후 새로고침해 주세요.",
                     debug ? `<p class="meta">${esc(error.message)} · <a href="/?debug=1&amp;state=normal">예시 화면 보기</a></p>` : "",
                 ));
-        }
+        };
+
+        $("#hero-body").addEventListener("click", (event) => {
+            if (!event.target.closest(".sens")) return;
+            sensitive = !sensitive;
+            try { window.localStorage.setItem("wave.sensitive", sensitive ? "1" : "0"); } catch (error) { /* 저장하지 못해도 화면은 동작한다 */ }
+            load();
+        });
+        load();
     </script>
 </body>
 </html>

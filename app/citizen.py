@@ -203,7 +203,10 @@ def _span(windows: list[dict]) -> str:
     return ", ".join(parts)
 
 
-def _recommendation(current: dict | None, forecast: list[dict]) -> dict:
+def _recommendation(current: dict | None, forecast: list[dict], sensitive: bool = False) -> dict:
+    """환기·외출 권고. sensitive=True(아이·어르신·호흡기 질환)면 권고를 한 단계 앞당긴다:
+    '보통'에서도 추천 시간(좋음)까지 기다리고, 산단 쪽 바람이면 창문을 닫는다.
+    대기질 등급 기준 자체는 바꾸지 않는다(참고용 권고)."""
     pm_now = (current or {}).get("pm25")
     industrial_now = ((current or {}).get("industrial_influence") or {}).get("level") in ("medium", "high")
     windows = _windows(forecast)
@@ -218,9 +221,15 @@ def _recommendation(current: dict | None, forecast: list[dict]) -> dict:
     elif pm_now > FAIR_PM25:
         status, summary = "avoid", "지금은 창문을 닫아 두세요"
         text = "미세먼지가 '나쁨' 수준입니다." + (f" {span}에 짧게 환기하세요." if windows else " 환기는 아주 짧게만 하세요.")
+    elif industrial_now and sensitive:
+        status, summary = "avoid", "산단 쪽 바람, 창문을 닫아 두세요"
+        text = "산단 방향(동~동남동)에서 바람이 불고 있어요. 민감군은 바람이 바뀐 뒤 환기하세요." + tail
     elif industrial_now:
         status, summary = "caution", "산단 쪽 바람, 짧게만 환기하세요"
         text = "산단 방향(동~동남동)에서 바람이 불고 있어요." + tail
+    elif pm_now > GOOD_PM25 and sensitive:
+        status, summary = "caution", "추천 시간에만 환기하세요"
+        text = "미세먼지 '보통' 수준입니다. 민감군은 '좋음'인 추천 시간에 환기하세요." + tail
     elif pm_now > GOOD_PM25:
         status, summary = "caution", "짧게 환기하세요"
         text = "미세먼지 '보통' 수준입니다. 10분 정도 짧게 환기하세요." + tail
@@ -234,6 +243,8 @@ def _recommendation(current: dict | None, forecast: list[dict]) -> dict:
         outdoor_status, outdoor = "avoid", "민감군은 외출을 줄이고, 나갈 때는 마스크를 쓰세요."
     elif peak is not None and peak > FAIR_PM25:
         outdoor_status, outdoor = "caution", "민감군은 긴 야외 활동을 줄이세요."
+    elif peak is not None and peak > GOOD_PM25 and sensitive:
+        outdoor_status, outdoor = "caution", "'보통'인 시간이 있어요. 민감군은 긴 야외 활동을 줄이세요."
     else:
         outdoor_status, outdoor = "good", "야외 활동하기 무난해요."
 
@@ -246,7 +257,8 @@ def _recommendation(current: dict | None, forecast: list[dict]) -> dict:
 
 
 def build_citizen_forecast(conn, settings: Settings, location: str = "suncheon",
-                           hours: int = 12, now: datetime | None = None) -> dict:
+                           hours: int = 12, now: datetime | None = None,
+                           sensitive: bool = False) -> dict:
     """최신 DB 상태를 시민 모드 API 계약으로 조립한다."""
     if location != "suncheon":
         raise ValueError("지원하지 않는 지역입니다")
@@ -340,7 +352,8 @@ def build_citizen_forecast(conn, settings: Settings, location: str = "suncheon",
         "data_sources": sources,
         "current": current,
         "forecast": forecast,
-        "recommendation": _recommendation(current, forecast),
+        "recommendation": _recommendation(current, forecast, sensitive),
+        "profile": "sensitive" if sensitive else "general",
         "reason": (
             "순천·광양·여수 측정소 PM2.5와 순천 바람·기온·습도로 학습한 AI 예측입니다. "
             if uses_ai else

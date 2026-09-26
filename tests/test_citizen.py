@@ -86,6 +86,32 @@ class CitizenForecastTest(unittest.TestCase):
         self.assertTrue(fallback["is_fallback"])
         self.assertEqual(fallback["current"]["pm25"], 99)
 
+    def test_sensitive_mode_closes_windows_on_industrial_wind(self):
+        # setUp의 현재 바람은 115°(산단 방향) 3.4m/s
+        general = build_citizen_forecast(self.conn, self.settings, now=self.now)
+        sensitive = build_citizen_forecast(self.conn, self.settings, now=self.now, sensitive=True)
+        self.assertEqual(general["recommendation"]["ventilation"]["status"], "caution")
+        self.assertEqual(sensitive["recommendation"]["ventilation"]["status"], "avoid")
+        self.assertEqual(sensitive["profile"], "sensitive")
+        self.assertEqual(general["profile"], "general")
+
+    def test_sensitive_mode_waits_for_good_hours_when_fair(self):
+        observed = self.now.replace(minute=0, second=0, microsecond=0)
+        db.upsert_records(self.conn, [
+            Record("kma", "suncheon", "observation", observed, observed, "wind_direction", 250, "deg"),
+        ], self.now)
+        general = build_citizen_forecast(self.conn, self.settings, now=self.now)
+        sensitive = build_citizen_forecast(self.conn, self.settings, now=self.now, sensitive=True)
+        # 현재 23㎍/㎥(보통), 산단 쪽 바람 아님
+        self.assertEqual(general["recommendation"]["summary"], "짧게 환기하세요")
+        self.assertEqual(sensitive["recommendation"]["summary"], "추천 시간에만 환기하세요")
+        self.assertEqual(general["recommendation"]["outdoor"]["status"], "good")
+        self.assertEqual(sensitive["recommendation"]["outdoor"]["status"], "caution")
+        # 대기질 등급과 예측값은 기준에 따라 바뀌지 않는다
+        self.assertEqual(general["current"]["air_quality"], sensitive["current"]["air_quality"])
+        self.assertEqual([i["pm25_predicted"] for i in general["forecast"]],
+                         [i["pm25_predicted"] for i in sensitive["forecast"]])
+
     def test_invalid_parameters_are_rejected(self):
         with self.assertRaises(ValueError):
             build_citizen_forecast(self.conn, self.settings, location="gwangyang", now=self.now)
