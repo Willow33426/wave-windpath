@@ -84,13 +84,16 @@ GET /api/citizen/forecast?location=suncheon&hours=12
 `app/.env`에서 `LLM_PROVIDER`(`none`, `openai`, `gemini`), `LLM_MODEL`,
 `LLM_API_KEY`, `LLM_TIMEOUT_SEC`를 설정한다. 기본값 `none`에서는 외부 호출 없이
 템플릿만 사용한다. 지원 모델명은 제공자의 API 문서를 확인해 환경변수에 넣는다.
+현재 #4 운영 선택은 `LLM_PROVIDER=gemini`, `LLM_MODEL=gemini-3.1-flash-lite`다.
 LLM 키는 서버에만 보관하며 응답·로그·정적 화면에 넣지 않는다. 브리핑 결과는
 마지막 수집 시각별로 5분간 캐시하고, 단일 워커에서 LLM 호출을 분당 10회로 제한한다.
 화면은 브리핑 본문을 `textContent`로 표시한다.
 실제 키를 서버의 `app/.env`에 설정한 뒤 `python -m scripts.smoke_briefing_llm`을
 실행하면 합성 관측값으로 외부 API 요청을 딱 한 번 검증한다. 결과에는 키와
-응답 본문을 출력하지 않는다. 성공 후 브라우저에서 브리핑 출처가 `AI 문장`으로
-표시되는지도 확인한다.
+응답 본문을 출력하지 않고 HTTP 상태, 브리핑 출처, 설정 모델, 응답시간만 출력한다.
+이 명령은 외부 제공자 호출 검증이며 화면 검증은 별도로 브라우저에서 브리핑 출처가
+`AI 문장`으로 표시되는지 확인한다. 키를 제거한 환경에서는
+`/api/citizen/briefing`이 `source=template`을 반환하는지 확인한다.
 
 `current` 객체
 

@@ -110,7 +110,8 @@ def _valid_answer(answer: str, template: str, data: dict) -> bool:
     return set(re.findall(r"\d+(?:\.\d+)?", text)) <= set(re.findall(r"\d+(?:\.\d+)?", template))
 
 
-async def _call_llm(template: str, settings: Settings) -> str:
+async def _call_llm(template: str, settings: Settings,
+                    on_response: Callable[[int], None] | None = None) -> str:
     if httpx is None:
         raise ValueError("HTTP 클라이언트가 없습니다")
     provider = settings.llm_provider
@@ -137,6 +138,8 @@ async def _call_llm(template: str, settings: Settings) -> str:
     async with httpx.AsyncClient(timeout=timeout) as client:
         response = await client.post(url, headers=headers, json=body)
         response.raise_for_status()
+        if on_response is not None:
+            on_response(response.status_code)
         payload = response.json()
     if provider == "openai":
         return payload["choices"][0]["message"]["content"]

@@ -78,10 +78,12 @@ class BriefingTest(unittest.TestCase):
 
         client_type = httpx.AsyncClient
         transport = httpx.MockTransport(respond)
+        statuses = []
         with patch("app.briefing.httpx.AsyncClient", side_effect=lambda **kw: client_type(transport=transport, **kw)):
             openai = asyncio.run(_call_llm("관측 20", Settings(llm_provider="openai", llm_model="test-model", llm_api_key="test-only")))
-            gemini = asyncio.run(_call_llm("관측 20", Settings(llm_provider="gemini", llm_model="test-model", llm_api_key="test-only")))
+            gemini = asyncio.run(_call_llm("관측 20", Settings(llm_provider="gemini", llm_model="test-model", llm_api_key="test-only"), on_response=statuses.append))
         self.assertEqual((openai, gemini), ("OpenAI 응답", "Gemini 응답"))
+        self.assertEqual(statuses, [200])
         self.assertTrue(all("test-only" not in str(request.url) for request in requests))
         self.assertEqual(requests[0].headers["authorization"], "Bearer test-only")
         self.assertEqual(requests[1].headers["x-goog-api-key"], "test-only")
