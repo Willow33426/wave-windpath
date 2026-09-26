@@ -20,6 +20,7 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import FileResponse
 
 from app import db
+from app.briefing import CallBudget, build_briefing
 from app.cache import ResponseCache
 from app.collector import META_LAST_COLLECTED, META_LAST_FALLBACK
 from app.citizen import build_citizen_forecast
@@ -31,6 +32,8 @@ VERSION = "0.1.0"
 STALE_AFTER = timedelta(hours=2)
 # 수집(30분 주기)이 없으면 결과가 거의 같으므로 1분 동안 재사용한다. 사용자가 몰려도 계산은 분당 한 번.
 citizen_cache = ResponseCache(ttl_sec=60)
+briefing_cache = ResponseCache(ttl_sec=300)
+briefing_budget = CallBudget(limit=10, period_sec=60)
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
@@ -146,6 +149,25 @@ async def citizen_forecast(
             "error": {"code": "INVALID_PARAMETER", "message": str(exc), "field": field}
         }) from exc
     citizen_cache.put(key, version, result)
+    return result
+
+
+@app.get("/citizen/briefing", include_in_schema=False)
+@app.get("/api/citizen/briefing")
+async def citizen_briefing(
+    location: str = Query("suncheon", max_length=32),
+    hours: int = Query(12, ge=1, le=24),
+    sensitive: bool = Query(False),
+) -> dict:
+    """예측을 짧은 행동 안내로 바꾼다. LLM 장애·한도 소진 시 템플릿을 반환한다."""
+    forecast = await citizen_forecast(location, hours, sensitive)
+    version = db.get_meta(app.state.conn, META_LAST_COLLECTED)
+    key = (location, hours, sensitive, settings.llm_provider, settings.llm_model)
+    cached = briefing_cache.get(key, version)
+    if cached is not None:
+        return cached
+    result = await build_briefing(forecast, settings, briefing_budget)
+    briefing_cache.put(key, version, result)
     return result
 
 

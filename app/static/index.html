@@ -84,6 +84,8 @@
         .head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
         .head span, .lead { color: var(--muted); font-size: .82rem; line-height: 1.55; }
         .lead { margin: 6px 0 12px; }
+        .briefing-text { margin: 8px 0 0; color: var(--soft); font-size: .91rem; line-height: 1.7; }
+        .briefing-source { color: var(--muted); font-size: .72rem; }
 
         /* 12시간: 한 화면에 12칸이 다 보이도록 칸 폭을 나눈다 */
         .strip { display: grid; grid-template-columns: repeat(var(--n, 12), minmax(0, 1fr)); gap: 3px; }
@@ -394,6 +396,7 @@
             layout();
         };
 
+        let briefingRequest = 0;
         const renderForecast = (data, isDemo = false) => {
             const forecast = Array.isArray(data.forecast) ? data.forecast : [];
             if (!data.current && forecast.length === 0) {
@@ -401,8 +404,27 @@
                 return;
             }
             renderHero(data, isDemo);
-            $("#app").innerHTML = [renderTimeline(data), renderModel(data), renderRose(data), renderSources(data)].join("");
+            $("#app").innerHTML = [renderTimeline(data),
+                `<section class="block" id="briefing"><h2>AI 브리핑 <span class="briefing-source"></span></h2><p class="briefing-text" aria-live="polite">${isDemo ? "화면 확인용 예시입니다. 실제 브리핑은 실데이터 화면에서 표시됩니다." : "브리핑을 준비하고 있습니다."}</p></section>`,
+                renderModel(data), renderRose(data), renderSources(data)].join("");
             layout();
+            const request = ++briefingRequest;
+            if (isDemo) return;
+            fetch(`/api/citizen/briefing?location=suncheon&hours=12${sensitive ? "&sensitive=true" : ""}`)
+                .then((response) => {
+                    if (!response.ok) throw new Error("브리핑 요청 실패");
+                    return response.json();
+                })
+                .then((briefing) => {
+                    if (request !== briefingRequest || !$("#briefing")) return;
+                    $("#briefing .briefing-text").textContent = briefing.text;
+                    $("#briefing .briefing-source").textContent = briefing.source === "llm" ? "· AI 문장" : "· 기본 안내";
+                })
+                .catch(() => {
+                    if (request !== briefingRequest || !$("#briefing")) return;
+                    $("#briefing .briefing-text").textContent = `${data.recommendation?.summary || "예보를 확인하세요."} 예측은 참고용으로 확인하세요.`;
+                    $("#briefing .briefing-source").textContent = "· 기본 안내";
+                });
         };
 
         // ?debug=1 전용 예시. 실제 관측값이 아니며 화면에도 그렇게 표시한다.

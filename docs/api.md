@@ -72,6 +72,22 @@ GET /api/citizen/forecast?location=suncheon&hours=12
 
 대기질과 기상 관측은 갱신 주기가 다를 수 있다. `observed_at` 하나로 두 자료가 같은 시각이라고 가정하지 말고, 화면과 계산에서는 반드시 각 `data_sources[].observed_at`을 함께 확인한다.
 
+### 시민 AI 브리핑 (#4)
+
+`GET /api/citizen/briefing?location=suncheon&hours=12&sensitive=false`는 같은 조건의
+시민 예보를 2~3문장으로 요약한다. Nginx가 `/api/`를 제거하는 환경에서는
+`/citizen/briefing`도 같은 응답을 준다. 응답은 `text`, `source`(`llm` 또는
+`template`), `observed_at`을 포함한다. LLM 키가 없거나, 호출 오류·시간 초과·한도
+소진·형식 오류가 발생하면 200 응답과 함께 `source=template`을 반환한다. 이 API는
+예측 수치나 등급을 변경하지 않는다.
+
+`app/.env`에서 `LLM_PROVIDER`(`none`, `openai`, `gemini`), `LLM_MODEL`,
+`LLM_API_KEY`, `LLM_TIMEOUT_SEC`를 설정한다. 기본값 `none`에서는 외부 호출 없이
+템플릿만 사용한다. 지원 모델명은 제공자의 API 문서를 확인해 환경변수에 넣는다.
+LLM 키는 서버에만 보관하며 응답·로그·정적 화면에 넣지 않는다. 브리핑 결과는
+마지막 수집 시각별로 5분간 캐시하고, 단일 워커에서 LLM 호출을 분당 10회로 제한한다.
+화면은 브리핑 본문을 `textContent`로 표시한다.
+
 `current` 객체
 
 | 필드 | 타입 | null | 설명 |

@@ -5,6 +5,7 @@ import pathlib
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
@@ -75,6 +76,19 @@ class CitizenForecastApiTest(unittest.TestCase):
 
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.json()["detail"]["error"]["code"], "INVALID_PARAMETER")
+
+    def test_briefing_returns_template_without_llm_key(self):
+        from fastapi.testclient import TestClient
+
+        with patch("app.main.settings", Settings()), patch("app.briefing._call_llm") as call:
+            client = TestClient(self.app)
+            public = client.get("/api/citizen/briefing?location=suncheon&hours=12")
+            internal = client.get("/citizen/briefing?location=suncheon&hours=12")
+        self.assertEqual(public.status_code, 200)
+        self.assertEqual(public.json()["source"], "template")
+        self.assertIn("참고용", public.json()["text"])
+        self.assertEqual(public.json(), internal.json())
+        call.assert_not_called()
 
 
 if __name__ == "__main__":
