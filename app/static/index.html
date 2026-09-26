@@ -61,6 +61,8 @@
             margin-top: 18px;
         }
 
+        .toolbar[hidden] { display: none; }
+
         .toolbar a {
             padding: 8px 11px;
             border: 1px solid rgb(255 255 255 / .45);
@@ -158,11 +160,11 @@
             <h1>순천 12시간 바람·대기질</h1>
             <p class="subtitle">풍향과 PM2.5 예측을 함께 보고 환기와 외출 판단을 돕습니다. 결과는 참고용이며 특정 시설과 대기질 사이의 인과관계를 단정하지 않습니다.</p>
             <nav class="toolbar" aria-label="개발 상태 확인">
-                <a href="/" data-state="live">실제 API</a>
-                <a href="/?state=normal" data-state="normal">명세 예시</a>
-                <a href="/?state=fallback" data-state="fallback">폴백 예시</a>
-                <a href="/?state=empty" data-state="empty">빈 데이터</a>
-                <a href="/?state=error" data-state="error">오류</a>
+                <a href="/?debug=1" data-state="live">실제 API</a>
+                <a href="/?debug=1&amp;state=normal" data-state="normal">명세 예시</a>
+                <a href="/?debug=1&amp;state=fallback" data-state="fallback">폴백 예시</a>
+                <a href="/?debug=1&amp;state=empty" data-state="empty">빈 데이터</a>
+                <a href="/?debug=1&amp;state=error" data-state="error">오류</a>
             </nav>
         </header>
         <section class="content" id="app" aria-live="polite">
@@ -171,7 +173,10 @@
     </main>
     <script>
         const root = document.querySelector("#app");
-        const state = new URLSearchParams(window.location.search).get("state") || "live";
+        const params = new URLSearchParams(window.location.search);
+        const debug = params.get("debug") === "1";
+        const state = debug ? (params.get("state") || "live") : "live";
+        document.querySelector(".toolbar").hidden = !debug;
 
         document.querySelectorAll("[data-state]").forEach((link) => {
             link.setAttribute("aria-current", link.dataset.state === state ? "true" : "false");
@@ -276,7 +281,7 @@
                 .catch((error) => renderState(
                     "시민 예보 API 연결 대기",
                     `${error.message}. 현재 백엔드에는 수집 API가 준비되어 있으며 시민 예보 응답을 연결하는 중입니다.`,
-                    '<p style="margin-top:12px"><a href="/?state=normal">명세 예시 화면 보기</a></p>',
+                    debug ? '<p style="margin-top:12px"><a href="/?debug=1&amp;state=normal">명세 예시 화면 보기</a></p>' : "",
                 ));
         }
     </script>

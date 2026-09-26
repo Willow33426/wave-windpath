@@ -21,6 +21,7 @@ from fastapi.responses import FileResponse
 
 from app import db
 from app.collector import META_LAST_COLLECTED, META_LAST_FALLBACK
+from app.citizen import build_citizen_forecast
 from app.config import load_settings
 from app.scheduler import run_collector_loop
 from app.sources.parse import KST
@@ -119,6 +120,22 @@ async def observations(
         "last_collected_at": db.get_meta(conn, META_LAST_COLLECTED),
         "items": db.rows_to_dicts(rows),
     }
+
+
+@app.get("/citizen/forecast", include_in_schema=False)
+@app.get("/api/citizen/forecast")
+async def citizen_forecast(
+    location: str = Query("suncheon"),
+    hours: int = Query(12),
+) -> dict:
+    """시민 화면에 필요한 현재 상태·12시간 예측·권고를 한 번에 반환한다."""
+    try:
+        return build_citizen_forecast(app.state.conn, settings, location, hours)
+    except ValueError as exc:
+        field = "location" if location != "suncheon" else "hours"
+        raise HTTPException(status_code=400, detail={
+            "error": {"code": "INVALID_PARAMETER", "message": str(exc), "field": field}
+        }) from exc
 
 
 if __name__ == "__main__":
