@@ -17,10 +17,11 @@ if str(ROOT) not in sys.path:
 
 import uvicorn
 from fastapi import FastAPI, HTTPException, Query
-from fastapi.responses import HTMLResponse
+from fastapi.responses import FileResponse
 
 from app import db
 from app.collector import META_LAST_COLLECTED, META_LAST_FALLBACK
+from app.citizen import build_citizen_forecast
 from app.config import load_settings
 from app.scheduler import run_collector_loop
 from app.sources.parse import KST
@@ -31,6 +32,7 @@ STALE_AFTER = timedelta(hours=2)
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
 settings = load_settings()
+STATIC_INDEX = Path(__file__).with_name("static") / "index.html"
 
 
 @asynccontextmanager
@@ -52,21 +54,9 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="Wave 바람길", version=VERSION, lifespan=lifespan)
 
 
-@app.get("/", response_class=HTMLResponse)
-async def index() -> str:
-    return """<!doctype html>
-<html lang="ko">
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Wave 바람길</title>
-</head>
-<body>
-    <h1>Wave 바람길</h1>
-    <p>바람 데이터로 잇는 우리 동네 공기 예보 × AI 데이터센터 RE100 시뮬레이터 (개발 중)</p>
-    <p><a href="/api/health">/api/health</a> · <a href="/api/observations">/api/observations</a></p>
-</body>
-</html>"""
+@app.get("/", response_class=FileResponse)
+async def index() -> FileResponse:
+    return FileResponse(STATIC_INDEX, media_type="text/html; charset=utf-8")
 
 
 @app.get("/health", include_in_schema=False)
@@ -130,6 +120,22 @@ async def observations(
         "last_collected_at": db.get_meta(conn, META_LAST_COLLECTED),
         "items": db.rows_to_dicts(rows),
     }
+
+
+@app.get("/citizen/forecast", include_in_schema=False)
+@app.get("/api/citizen/forecast")
+async def citizen_forecast(
+    location: str = Query("suncheon"),
+    hours: int = Query(12),
+) -> dict:
+    """시민 화면에 필요한 현재 상태·12시간 예측·권고를 한 번에 반환한다."""
+    try:
+        return build_citizen_forecast(app.state.conn, settings, location, hours)
+    except ValueError as exc:
+        field = "location" if location != "suncheon" else "hours"
+        raise HTTPException(status_code=400, detail={
+            "error": {"code": "INVALID_PARAMETER", "message": str(exc), "field": field}
+        }) from exc
 
 
 if __name__ == "__main__":

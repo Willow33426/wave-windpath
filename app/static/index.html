@@ -1,0 +1,307 @@
+<!doctype html>
+<html lang="ko">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Wave 바람길 · 시민 모드</title>
+    <style>
+        :root {
+            color-scheme: light;
+            --ink: #17212b;
+            --muted: #607080;
+            --line: #dce7e5;
+            --brand: #147d73;
+            --brand-dark: #0a5a54;
+            --good: #197149;
+            --warn: #a85d12;
+            --bad: #b93631;
+            --panel: #ffffff;
+            --soft: #f2f7f6;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            color: var(--ink);
+            background: #eaf1ef;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }
+
+        main {
+            width: min(100%, 760px);
+            min-height: 100vh;
+            margin: 0 auto;
+            background: var(--soft);
+        }
+
+        .top {
+            padding: 24px 18px 20px;
+            color: #fff;
+            background: linear-gradient(135deg, #0d625b, #238e7e 55%, #69a95f);
+        }
+
+        .eyebrow, .label { margin: 0 0 6px; font-size: .8rem; font-weight: 750; }
+        .eyebrow { opacity: .88; }
+        .label { color: var(--muted); }
+        h1 { margin: 0; font-size: clamp(1.8rem, 8vw, 3rem); line-height: 1.08; }
+
+        .subtitle {
+            max-width: 38rem;
+            margin: 12px 0 0;
+            font-size: .96rem;
+            line-height: 1.6;
+            opacity: .94;
+        }
+
+        .toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 7px;
+            margin-top: 18px;
+        }
+
+        .toolbar[hidden] { display: none; }
+
+        .toolbar a {
+            padding: 8px 11px;
+            border: 1px solid rgb(255 255 255 / .45);
+            border-radius: 8px;
+            color: #fff;
+            background: rgb(255 255 255 / .13);
+            font-size: .8rem;
+            font-weight: 750;
+            text-decoration: none;
+        }
+
+        .toolbar a[aria-current="true"] { color: var(--brand-dark); background: #fff; }
+        .content { display: grid; gap: 12px; padding: 12px; }
+
+        .panel {
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            background: var(--panel);
+            box-shadow: 0 9px 24px rgb(18 54 48 / .07);
+        }
+
+        .notice {
+            padding: 10px 12px;
+            border-radius: 9px;
+            color: #75500e;
+            background: #fff5d9;
+            font-size: .85rem;
+            line-height: 1.5;
+        }
+
+        .summary { display: grid; gap: 14px; padding: 17px; }
+        .summary-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+        .location { margin: 0; font-size: 1.3rem; font-weight: 800; }
+
+        .badge {
+            min-width: 66px;
+            padding: 8px 10px;
+            border-radius: 8px;
+            color: var(--good);
+            background: #e7f6ed;
+            text-align: center;
+            font-weight: 800;
+        }
+
+        .badge.warn { color: var(--warn); background: #fff0d7; }
+        .badge.bad { color: var(--bad); background: #ffe7e3; }
+
+        .metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+        .metric { min-width: 0; padding: 11px; border: 1px solid #e2ece9; border-radius: 9px; background: #f7fbfa; }
+        .metric strong { display: block; margin-top: 5px; font-size: clamp(1rem, 4vw, 1.35rem); overflow-wrap: anywhere; }
+
+        .recommendations { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .recommendation { padding: 12px; border-left: 4px solid var(--brand); border-radius: 8px; background: #ecf7f4; line-height: 1.55; }
+        .recommendation strong { display: block; margin-bottom: 4px; }
+
+        .section { padding: 17px; }
+        .section h2 { margin: 0 0 12px; font-size: 1.05rem; }
+        .hours { display: grid; gap: 9px; }
+        .hour { display: grid; grid-template-columns: 52px 1fr 68px; align-items: center; gap: 10px; min-height: 43px; }
+        .bar-track { height: 12px; overflow: hidden; border-radius: 999px; background: #dce9e7; }
+        .bar { height: 100%; border-radius: inherit; background: #9fb3ae; }
+        .bar.good { background: #3f9d63; }
+        .bar.warn { background: #d9a431; }
+        .bar.bad { background: #d0543f; }
+        .bar.worst { background: #8e2f8f; }
+        .hour small { color: var(--muted); font-weight: 700; }
+        .reason { margin: 0; color: var(--muted); line-height: 1.6; }
+
+        .source-list { display: grid; gap: 8px; padding: 0; margin: 12px 0 0; list-style: none; }
+        .source-list li { padding: 9px; border: 1px solid var(--line); border-radius: 8px; color: var(--muted); font-size: .82rem; }
+
+        .state { display: grid; min-height: 250px; place-items: center; padding: 28px 18px; text-align: center; }
+        .state strong { display: block; margin-bottom: 8px; font-size: 1.2rem; }
+        .state p { max-width: 34rem; margin: 0; color: var(--muted); line-height: 1.6; }
+        .state a { color: var(--brand-dark); font-weight: 750; }
+
+        .spinner {
+            width: 34px;
+            height: 34px;
+            margin: 0 auto 14px;
+            border: 4px solid #d6e4e1;
+            border-top-color: var(--brand);
+            border-radius: 50%;
+            animation: spin .9s linear infinite;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        @media (max-width: 520px) {
+            .metrics, .recommendations { grid-template-columns: 1fr; }
+            .hour { grid-template-columns: 48px 1fr 62px; }
+        }
+    </style>
+</head>
+<body>
+    <main>
+        <header class="top">
+            <p class="eyebrow">Wave 바람길 · 순천</p>
+            <h1>지금 환기해도 될까요?</h1>
+            <p class="subtitle">바람이 어디서 불어오는지와 12시간 미세먼지 예측으로 환기·외출 시간을 알려 드려요.</p>
+            <nav class="toolbar" aria-label="개발 상태 확인">
+                <a href="/?debug=1" data-state="live">실제 API</a>
+                <a href="/?debug=1&amp;state=normal" data-state="normal">명세 예시</a>
+                <a href="/?debug=1&amp;state=fallback" data-state="fallback">폴백 예시</a>
+                <a href="/?debug=1&amp;state=empty" data-state="empty">빈 데이터</a>
+                <a href="/?debug=1&amp;state=error" data-state="error">오류</a>
+            </nav>
+        </header>
+        <section class="content" id="app" aria-live="polite">
+            <div class="panel state"><div><div class="spinner" aria-hidden="true"></div><strong>예보를 불러오는 중</strong><p>최신 바람길 정보를 확인하고 있습니다.</p></div></div>
+        </section>
+    </main>
+    <script>
+        const root = document.querySelector("#app");
+        const params = new URLSearchParams(window.location.search);
+        const debug = params.get("debug") === "1";
+        const state = debug ? (params.get("state") || "live") : "live";
+        document.querySelector(".toolbar").hidden = !debug;
+
+        document.querySelectorAll("[data-state]").forEach((link) => {
+            link.setAttribute("aria-current", link.dataset.state === state ? "true" : "false");
+        });
+
+        const escapeText = (value) => {
+            const span = document.createElement("span");
+            span.textContent = value == null || value === "" ? "정보 없음" : String(value);
+            return span.innerHTML;
+        };
+
+        const formatTime = (value) => value ? new Intl.DateTimeFormat("ko-KR", {
+            hour: "2-digit", minute: "2-digit", hour12: false,
+        }).format(new Date(value)) : "--:--";
+
+        const formatUpdated = (value) => value ? new Intl.DateTimeFormat("ko-KR", {
+            month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false,
+        }).format(new Date(value)) : "정보 없음";
+
+        const qualityClass = (quality) => {
+            if (quality === "나쁨" || quality === "매우나쁨") return "bad";
+            if (quality === "보통" || !quality) return "warn";
+            return "";
+        };
+
+        // 영향의 크기가 아니라 바람이 산단 방향에서 오는지만 표현한다.
+        const influenceLabel = (level) => ({ low: "거의 없음", medium: "약하게 있음", high: "있음", unknown: "판단 불가" })[level] || "판단 불가";
+
+        // 막대는 예보끼리의 상대 비교가 아니라 PM2.5 등급 경계(15·35·75㎍/㎥) 기준 절대 눈금이다.
+        const gradeClass = (value) => value <= 15 ? "good" : value <= 35 ? "warn" : value <= 75 ? "bad" : "worst";
+
+        const modelLabel = (name) => {
+            if (!name) return "정보 없음";
+            if (name.startsWith("ml-")) return "AI 예측 모델";
+            return ({ "baseline-persistence": "최근 관측값 유지(기준선)", "baseline-wind-rule": "풍향 보정 규칙(기준선)" })[name] || name;
+        };
+
+        const renderState = (title, message, extra = "") => {
+            root.innerHTML = `<div class="panel state"><div><strong>${escapeText(title)}</strong><p>${escapeText(message)}</p>${extra}</div></div>`;
+        };
+
+        const renderForecast = (data, isDemo = false) => {
+            const current = data.current;
+            const forecast = Array.isArray(data.forecast) ? data.forecast : [];
+            if (!current && forecast.length === 0) {
+                renderState("표시할 예보가 없습니다", "관측 또는 예측 데이터가 들어오면 자동으로 표시됩니다.");
+                return;
+            }
+
+            const hours = forecast.map((item) => {
+                const pm = item.pm25_predicted;
+                const value = pm == null ? "없음" : `${pm}㎍/㎥`;
+                const width = pm == null ? 0 : Math.min(100, Math.max(4, Math.round((pm / 75) * 100)));
+                return `<div class="hour"><small>${formatTime(item.forecast_time)}</small><div class="bar-track" aria-label="PM2.5 ${escapeText(value)}"><div class="bar ${pm == null ? "" : gradeClass(pm)}" style="width:${width}%"></div></div><small>${escapeText(value)}</small></div>`;
+            }).join("");
+
+            // 비어 있는 부가 정보에 '정보 없음'이 붙지 않도록 값이 있을 때만 이어 붙인다.
+            const sourceItems = (data.data_sources || []).map((source) => {
+                const when = source.observed_at ? ` · 관측 ${escapeText(formatUpdated(source.observed_at))}` : "";
+                const note = source.note ? ` · ${escapeText(source.note)}` : "";
+                return `<li><strong>${escapeText(source.provider)}</strong> ${escapeText(source.name)}${when}${note}</li>`;
+            }).join("");
+            const station = data.location?.air_station ? ` · ${escapeText(data.location.air_station)} 측정소` : "";
+            const mae = data.model?.mae_validation == null ? "" : ` · 검증 평균 오차 ${escapeText(data.model.mae_validation)}㎍/㎥`;
+
+            const influence = current?.industrial_influence || {};
+            const ventilation = data.recommendation?.ventilation || {};
+            const outdoor = data.recommendation?.outdoor || {};
+            const wind = current?.wind_direction_label && current?.wind_speed_mps != null
+                ? `${current.wind_direction_label} ${current.wind_speed_mps}m/s`
+                : "정보 없음";
+
+            root.innerHTML = `
+                ${isDemo ? '<div class="notice">산단 쪽 바람이 불 때의 화면 예시입니다. 실제 관측값이 아닙니다.</div>' : ""}
+                ${data.is_fallback ? '<div class="notice">최신 자료를 받지 못해 이전 자료 또는 대체 자료를 사용했습니다.</div>' : ""}
+                <article class="panel summary">
+                    <div class="summary-head"><div><p class="label">측정 지역${station}</p><p class="location">${escapeText(data.location?.name)}</p></div><div class="badge ${qualityClass(current?.air_quality)}">${escapeText(current?.air_quality)}</div></div>
+                    <div class="metrics">
+                        <div class="metric"><span class="label">현재 PM2.5</span><strong>${current?.pm25 == null ? "정보 없음" : `${escapeText(current.pm25)}㎍/㎥`}</strong></div>
+                        <div class="metric"><span class="label">풍향·풍속</span><strong>${escapeText(wind)}</strong></div>
+                        <div class="metric"><span class="label">산단 쪽에서 오는 바람</span><strong>${escapeText(influenceLabel(influence.level))}</strong></div>
+                    </div>
+                    <div class="recommendations"><div class="recommendation"><strong>환기</strong>${escapeText(ventilation.text)}</div><div class="recommendation"><strong>외출</strong>${escapeText(outdoor.text)}</div></div>
+                    <p class="reason">관측 ${formatUpdated(data.observed_at)} 기준 · ${escapeText(influence.note)}</p>
+                </article>
+                <article class="panel section"><h2>향후 ${forecast.length}시간 PM2.5 예측</h2><div class="hours">${hours || '<p class="reason">예측 데이터가 없습니다.</p>'}</div></article>
+                <article class="panel section"><h2>판단 근거와 한계</h2><p class="reason">${escapeText(data.reason)}</p><p class="reason">예측 방식: ${escapeText(modelLabel(data.model?.name))}${mae}</p><ul class="source-list">${sourceItems}</ul></article>`;
+        };
+
+        const now = new Date();
+        now.setMinutes(0, 0, 0);
+        const isoAt = (hours) => new Date(now.getTime() + hours * 3600000).toISOString();
+        const demoPayload = (fallback = false) => ({
+            location: { id: "suncheon", name: "순천시" },
+            updated_at: isoAt(0), observed_at: isoAt(fallback ? -6 : 0), is_fallback: fallback,
+            data_sources: [{ name: "API 명세 mock", provider: "개발 예시", observed_at: isoAt(fallback ? -6 : 0), note: fallback ? "폴백 화면 확인용 예시입니다." : "실제 관측값이 아닙니다." }],
+            current: { pm25: fallback ? 19 : 23, air_quality: "보통", wind_direction_label: fallback ? null : "동남동", wind_speed_mps: fallback ? null : 3.4, industrial_influence: { level: fallback ? "unknown" : "medium", note: fallback ? "풍향 자료가 없어 판단하지 못했습니다." : "동남동풍이 이어지는 참고 상황입니다." } },
+            forecast: Array.from({ length: 12 }, (_, index) => ({ forecast_time: isoAt(index + 1), pm25_predicted: fallback ? 19 : [26,29,31,30,27,24,21,19,18,17,16,16][index], confidence: fallback ? null : Math.max(.48, .78 - index * .03), is_fallback: fallback })),
+            recommendation: { ventilation: { text: fallback ? "최신 자료가 복구되면 다시 확인하세요." : "농도가 낮아지는 밤 시간대에 짧게 환기하세요." }, outdoor: { text: fallback ? "현재 정보는 참고용으로만 확인하세요." : "민감군은 늦은 시간 활동을 검토하세요." }, summary: "개발 예시" },
+            reason: fallback ? "자료 지연 상태를 확인하기 위한 명세 예시입니다." : "풍향과 PM2.5 변화를 함께 표현하는 명세 예시입니다.",
+            model: { name: fallback ? "baseline-persistence" : "baseline-wind-rule", mae_validation: null },
+        });
+
+        if (state === "normal") renderForecast(demoPayload(false), true);
+        else if (state === "fallback") renderForecast(demoPayload(true), true);
+        else if (state === "empty") renderState("표시할 예보가 없습니다", "관측 또는 예측 데이터가 들어오면 자동으로 표시됩니다.");
+        else if (state === "error") renderState("예보를 불러오지 못했어요", "잠시 후 새로고침해 주세요.");
+        else {
+            fetch("/api/citizen/forecast?location=suncheon&hours=12")
+                .then((response) => {
+                    if (!response.ok) throw new Error(`예보 API 응답 오류 (${response.status})`);
+                    return response.json();
+                })
+                .then((data) => renderForecast(data, false))
+                // 공개 화면에는 개발용 오류 내용을 보이지 않고, debug에서만 원인을 함께 표시한다.
+                .catch((error) => renderState(
+                    "예보를 불러오지 못했어요",
+                    "잠시 후 새로고침해 주세요.",
+                    debug ? `<p style="margin-top:12px">${escapeText(error.message)} · <a href="/?debug=1&amp;state=normal">예시 화면 보기</a></p>` : "",
+                ));
+        }
+    </script>
+</body>
+</html>
