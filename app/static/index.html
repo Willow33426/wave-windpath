@@ -267,11 +267,25 @@
         else if (state === "empty") renderState("표시할 예보가 없습니다", "관측 또는 예측 데이터가 들어오면 자동으로 표시됩니다.");
         else if (state === "error") renderState("예보를 불러오지 못했습니다", "서버 상태를 확인한 뒤 잠시 후 다시 시도해 주세요.");
         else {
-            fetch("/api/citizen/forecast?location=suncheon&hours=12")
-                .then((response) => {
-                    if (!response.ok) throw new Error(`예보 API 응답 오류 (${response.status})`);
-                    return response.json();
-                })
+            const fetchForecast = async () => {
+                const urls = [
+                    "/api/citizen/forecast?location=suncheon&hours=12",
+                    "/citizen/forecast?location=suncheon&hours=12",
+                ];
+                let lastError = null;
+                for (const url of urls) {
+                    try {
+                        const response = await fetch(url);
+                        if (!response.ok) throw new Error(`예보 API 응답 오류 (${response.status})`);
+                        return response.json();
+                    } catch (error) {
+                        lastError = error;
+                    }
+                }
+                throw lastError || new Error("예보 API 연결 실패");
+            };
+
+            fetchForecast()
                 .then((data) => renderForecast(data, false))
                 .catch((error) => renderState(
                     "시민 예보 API 연결 대기",

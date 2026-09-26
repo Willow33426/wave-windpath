@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="ko">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Wave 바람길</title>
+    <script>
+        const target = `/app/static/index.html${window.location.search}${window.location.hash}`;
+        window.location.replace(target);
+    </script>
+    <noscript>
+        <meta http-equiv="refresh" content="0; url=/app/static/index.html">
+    </noscript>
+</head>
+<body>
+    <p><a href="/app/static/index.html">Wave 바람길 시민 모드로 이동</a></p>
+</body>
+</html>
