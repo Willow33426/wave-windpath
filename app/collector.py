@@ -75,7 +75,11 @@ def _collect_station(station: Station, settings: Settings,
             if fetch is None:
                 raise UpstreamError("서비스 키 또는 httpx 없음")
             payload = getattr(fetch, caller)(station, settings)
-            records += parser(payload, station.key)
+            parsed = parser(payload, station.key)
+            if not parsed:
+                # 정상 코드에 0건이면 측정소 이름 변경·운영 중단일 수 있다. 폴백 없이 결측으로 두되 로그로 드러낸다.
+                logger.warning("%s 응답 0건(%s): 측정소 이름·운영 상태 확인 필요", caller, station.key)
+            records += parsed
         except UpstreamError as exc:
             logger.warning("%s 수집 실패(%s) → fixture 사용: %s", caller, station.key, exc)
             fixture_records = parser(load_fixture(fixture_name), station.key)

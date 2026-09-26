@@ -178,6 +178,42 @@ class NowcastCollectedTest(unittest.TestCase):
             conn.close()
 
 
+class EmptyAirkoreaResponseTest(unittest.TestCase):
+    """정상 코드에 0건이면 폴백하지 않되 로그로 드러내는지 (여천동 → 여천동(여수) 이름 변경 사례)."""
+
+    def test_empty_response_is_logged_without_fallback(self):
+        from unittest.mock import patch
+
+        from app import collector
+        from app.config import STATIONS, Settings
+
+        class Fetch:
+            @staticmethod
+            def fetch_airkorea(station, settings):
+                return {"response": {"header": {"resultCode": "00"}, "body": {"totalCount": 0, "items": []}}}
+
+            @staticmethod
+            def fetch_kma_nowcast(station, settings):
+                return collector.load_fixture("kma_nowcast_sample.json")
+
+            @staticmethod
+            def fetch_kma_forecast(station, settings):
+                return collector.load_fixture("kma_forecast_sample.json")
+
+        station = next(s for s in STATIONS if s.key == "yeosu")
+        with patch.object(collector, "_load_fetch", return_value=Fetch), \
+                self.assertLogs(collector.logger, level="WARNING") as logs:
+            records, used_fallback = collector._collect_station(station, Settings(), datetime.now(KST))
+        self.assertFalse(used_fallback)
+        self.assertEqual([r for r in records if r.source == "airkorea"], [])
+        self.assertTrue(any("fetch_airkorea 응답 0건(yeosu)" in line for line in logs.output))
+
+    def test_yeosu_uses_current_airkorea_station_name(self):
+        from app.config import STATIONS
+
+        self.assertEqual(next(s for s in STATIONS if s.key == "yeosu").air_station, "여천동(여수)")
+
+
 class DbPathTest(unittest.TestCase):
     """상대 DB_PATH는 작업 디렉터리가 아니라 프로젝트 루트 기준이어야 한다."""
 
