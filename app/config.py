@@ -53,6 +53,10 @@ class Settings:
     collect_interval_minutes: int = 30
     request_timeout_sec: float = 10.0
     request_retries: int = 2
+    llm_provider: str = "none"
+    llm_model: str = ""
+    llm_api_key: str = ""
+    llm_timeout_sec: float = 4.0
     stations: tuple[Station, ...] = field(default_factory=lambda: STATIONS)
 
     @property
@@ -79,4 +83,8 @@ def load_settings() -> Settings:
         collect_interval_minutes=_int("COLLECT_INTERVAL_MINUTES", 30),
         request_timeout_sec=float(os.getenv("REQUEST_TIMEOUT_SEC", "10")),
         request_retries=_int("REQUEST_RETRIES", 2),
+        llm_provider=os.getenv("LLM_PROVIDER", "none").strip().lower(),
+        llm_model=os.getenv("LLM_MODEL", "").strip(),
+        llm_api_key=os.getenv("LLM_API_KEY", ""),
+        llm_timeout_sec=float(os.getenv("LLM_TIMEOUT_SEC", "4")),
     )

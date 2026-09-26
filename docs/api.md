@@ -72,11 +72,35 @@ GET /api/citizen/forecast?location=suncheon&hours=12
 
 대기질과 기상 관측은 갱신 주기가 다를 수 있다. `observed_at` 하나로 두 자료가 같은 시각이라고 가정하지 말고, 화면과 계산에서는 반드시 각 `data_sources[].observed_at`을 함께 확인한다.
 
+### 시민 AI 브리핑 (#4)
+
+`GET /api/citizen/briefing?location=suncheon&hours=12&sensitive=false`는 같은 조건의
+시민 예보를 2~3문장으로 요약한다. Nginx가 `/api/`를 제거하는 환경에서는
+`/citizen/briefing`도 같은 응답을 준다. 응답은 `text`, `source`(`llm` 또는
+`template`), `observed_at`을 포함한다. LLM 키가 없거나, 호출 오류·시간 초과·한도
+소진·형식 오류가 발생하면 200 응답과 함께 `source=template`을 반환한다. 이 API는
+예측 수치나 등급을 변경하지 않는다.
+
+`app/.env`에서 `LLM_PROVIDER`(`none`, `openai`, `gemini`), `LLM_MODEL`,
+`LLM_API_KEY`, `LLM_TIMEOUT_SEC`를 설정한다. 기본값 `none`에서는 외부 호출 없이
+템플릿만 사용한다. 지원 모델명은 제공자의 API 문서를 확인해 환경변수에 넣는다.
+현재 #4 운영 선택은 `LLM_PROVIDER=gemini`, `LLM_MODEL=gemini-3.1-flash-lite`다.
+LLM 키는 서버에만 보관하며 응답·로그·정적 화면에 넣지 않는다. 브리핑 결과는
+마지막 수집 시각별로 5분간 캐시하고, 단일 워커에서 LLM 호출을 분당 10회로 제한한다.
+화면은 브리핑 본문을 `textContent`로 표시한다.
+실제 키를 서버의 `app/.env`에 설정한 뒤 `python -m scripts.smoke_briefing_llm`을
+실행하면 합성 관측값으로 외부 API 요청을 딱 한 번 검증한다. 결과에는 키와
+응답 본문을 출력하지 않고 HTTP 상태, 브리핑 출처, 설정 모델, 응답시간만 출력한다.
+이 명령은 외부 제공자 호출 검증이며 화면 검증은 별도로 브라우저에서 브리핑 출처가
+`AI 문장`으로 표시되는지 확인한다. 키를 제거한 환경에서는
+`/api/citizen/briefing`이 `source=template`을 반환하는지 확인한다.
+
 `current` 객체
 
 | 필드 | 타입 | null | 설명 |
 |---|---|---|---|
 | `pm25`, `pm10` | number | O | 관측 농도 ㎍/㎥ |
+| `pm25_observed_at` | datetime | O | PM2.5 값 자체의 관측 시각. 브리핑에서 이 시각을 사용 |
 | `air_quality` | string | O | `좋음` \| `보통` \| `나쁨` \| `매우나쁨` (PM2.5 기준 `≤15` / `≤35` / `≤75` / `>75`. 예측값은 소수가 나오므로 구간이 아니라 부등호로 정한다) |
 | `wind_direction` | int | O | 0~359 |
 | `wind_direction_label` | string | O | `남남서` 같은 16방위 한글 표기 |

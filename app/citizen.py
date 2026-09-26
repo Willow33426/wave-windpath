@@ -314,6 +314,7 @@ def build_citizen_forecast(conn, settings: Settings, location: str = "suncheon",
     if observed_rows:
         current = {
             "pm25": values["pm25"],
+            "pm25_observed_at": _time(latest["pm25"]).isoformat() if latest["pm25"] else None,
             "pm10": values["pm10"],
             "air_quality": _quality(values["pm25"]),
             "wind_direction": values["wind_direction"],
