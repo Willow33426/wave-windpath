@@ -5,8 +5,11 @@
 > 2026 SCNU OSS·AI 해커톤 경진대회 고급 트랙 · 팀 Wave
 
 - **서비스 주소**: <https://a8.scnuoss.net/> (휴대폰 화면 기준)
-- **상태**: 시민 모드 운영 중 (실데이터 자동 수집 + AI 12시간 예측 + 환기 추천). 산업 모드는 향후 계획
+- **상태**: 시민 모드 운영 중 (실데이터 자동 수집 + AI 12시간 예측 + AI 브리핑 + 환기 추천). 산업 모드는 향후 계획
+- **개발보고서**: [docs/development-report.md](docs/development-report.md) (평가 항목별 근거)
 - **작업 목록**: [Issues](https://github.com/Willow33426/wave-windpath/issues)
+
+![Wave 바람길 화면: 실시간 첫 화면, 산단 쪽 바람일 때(예시), AI 브리핑과 12시간 예측](docs/images/overview.png)
 
 ## 한 줄 소개
 
@@ -33,13 +36,15 @@ Wave 바람길은 기상 데이터 하나로 두 가지 질문에 답합니다.
 - **바람길 나침반**: 바람이 어느 쪽에서 순천으로 불어오는지, 광양·여수 산단 방향(동~동남동)과 겹치는지 표시
 - **AI 12시간 예측**: 순천·광양·여수 측정소와 순천 바람·기온·습도로 학습한 모델. 학습에 쓰지 않은 기간 실측으로 검증한 평균 오차 3.39㎍/㎥, '지금 값 유지'보다 10.5% 정확 ([모델 문서](docs/model-ai.md))
 - **환기 추천 시간**: 예측이 '좋음'이면서 산단 쪽 바람이 아닌 시간대를 묶어 표시
+- **AI 브리핑**: 관측·예측 수치를 Gemini가 2~3문장으로 설명. 수치·시각·등급·풍향이 입력과 같은지 검증하고, 원인 단정 표현이 있으면 기본 안내로 대신 표시 ([API 명세](docs/api.md#시민-ai-브리핑-4))
+- **민감군 기준**: 아이·어르신·호흡기 질환이면 권고를 한 단계 더 조심스럽게(예: 산단 쪽 바람이면 창문 닫기)
 - **실측 근거**: 지난 90일 바람 방향별 순천 초미세먼지 평균을 그대로 공개
 - 공공데이터 30분 주기 자동 수집. 외부 API가 멈추면 대체 자료와 기준선 예측으로 계속 동작
 
 ### 향후 계획
 
 - 산업 모드: 해남 등 AI 데이터센터 후보지의 재생에너지 자급률(RE100)·외기 냉각 시간 계산 (#5)
-- AI 한 줄 브리핑(LLM) (#4), SmartThings 공기청정기 연동 (#7)
+- SmartThings 공기청정기 연동 (#7)
 - 겨울·봄 고농도 계절 자료로 재학습
 
 ## 데이터
@@ -64,11 +69,14 @@ flowchart LR
   DB --> API[FastAPI /api/citizen/forecast]
   ML[AI 예측 · 시간별 릿지 회귀] --> API
   HIST[90일 실측 + Open-Meteo 과거 기상] -. 학습 scripts/train_ridge.py .-> ML
+  API --> BR[AI 브리핑 · Gemini + 검증 /api/citizen/briefing]
   API --> WEB[시민 화면 · 모바일 웹]
+  BR --> WEB
 ```
 
 - 백엔드: Python, FastAPI
 - 예측 모델: 예측 시간마다 따로 학습한 릿지 회귀 14개. 외부 패키지 없이 학습·추론하고, 서버는 계수 파일(`app/forecast/ridge_model.json`)만 읽습니다. 입력이 모자라면 기준선(지금 값 유지·풍향 규칙)으로 자동 전환합니다.
+- AI 브리핑: Google Gemini API(`gemini-3.1-flash-lite`)를 외부 호출합니다. 키는 서버 `app/.env`에만 두고, 분당 10회 제한·5분 캐시, 검증 실패나 장애 때는 기본 안내 문장을 씁니다.
 - 프론트엔드: 단일 HTML·CSS·JS(외부 라이브러리 없음, 글꼴만 CDN). 첫 화면은 실제 풍향으로 흐르는 바람 입자와 산단 방위를 그린 캔버스입니다. 대회 서버 Nginx가 첫 화면을 제공하고 `/api/`는 FastAPI로 넘깁니다.
 - 배포: 대회 제공 서버, 팀 a8 (<https://a8.scnuoss.net/> → 내부 포트 3108). 사용자 권한 Supervisor와 crontab `@reboot`
 - AI 코딩 도구: OpenAI Codex, Claude Code. 두 도구 모두 [AGENTS.md](AGENTS.md) 규칙을 따릅니다.
@@ -88,6 +96,8 @@ requirements.txt              # 앱 의존성
 app/
   main.py                     # FastAPI 앱, 수집 스케줄러 시작
   citizen.py                  # 시민 화면 응답 조립(예측·환기 추천·근거)
+  briefing.py                 # AI 브리핑(Gemini 호출·검증·기본 안내)
+  cache.py                    # 수집 시각 기준 응답 캐시
   collector.py, scheduler.py  # 공공데이터 수집(30분 주기), 실패 시 대체 자료
   sources/                    # 기상청·에어코리아 호출과 정규화
   forecast/ridge.py           # AI 예측 모델(릿지) 학습·추론 함수
@@ -98,7 +108,7 @@ app/
 scripts/train_ridge.py        # 모델 학습·검증
 scripts/compare_models.py     # 모델 비교 실험(선택, scikit-learn 필요)
 deploy/                       # supervisord 설정, 한 줄 배포 스크립트
-docs/                         # API 명세, 모델 문서, 데이터 출처
+docs/                         # 개발보고서, API 명세, 모델 문서, 데이터 출처
 tests/                        # 단위 테스트 (CI에서 PR마다 실행)
 AGENTS.md                     # 팀원과 AI 코딩 도구가 함께 따르는 작업 규칙
 THIRD_PARTY_NOTICES.md        # 가져다 쓴 오픈소스의 저작권·라이선스 고지
@@ -216,9 +226,11 @@ git pull --ff-only origin main && sh deploy/deploy.sh
 
 | 이름 | 역할 |
 |---|---|
-| 류현우 (팀장) | PM, 데이터 수집, RE100·냉각 계산, 문서 |
-| 문호영 | 바람길 AI 예측 모델, AI 브리핑(LLM) |
-| 김현수 | 프론트엔드, UI/UX, 배포 |
+| 류현우 (팀장) | 기획·PM, 공공데이터 수집·API, AI 예측 모델, 화면 통합, 배포·보안, 문서 |
+| 문호영 | AI 모델 실험(부스팅 비교·이력 추출), AI 브리핑(Gemini·검증·폴백), 코드 리뷰 |
+| 김현수 | 시민 화면 UI 초안·API 테스트, 링크 미리보기, 코드 리뷰 |
+
+기여 내역은 [개발보고서 5장](docs/development-report.md#5-협업)과 PR 기록에 있습니다.
 
 ## 일정
 
@@ -232,6 +244,7 @@ git pull --ff-only origin main && sh deploy/deploy.sh
 - 데이터
   - 기상청 단기예보·초단기실황 조회서비스, 한국환경공단 에어코리아 대기오염정보 조회서비스: 공공데이터포털(data.go.kr) 오픈 API. 포털의 이용허락범위에 따라 출처를 표시합니다.
   - 모델 학습용 과거 기상: [Open-Meteo](https://open-meteo.com/) Historical Weather API (CC BY 4.0)
+- 외부 AI API: Google Gemini API(AI 브리핑 문장 생성). 예측 수치는 Gemini가 만들지 않고, 답은 검증을 통과할 때만 표시합니다.
 - 사용한 오픈소스
 
 | 이름 | 용도 | 라이선스 |
