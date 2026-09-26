@@ -8,9 +8,15 @@ from unittest.mock import patch
 
 from app.config import STATIONS, Settings
 from app.sources.parse import KST
-from scripts.export_airkorea_history import fetch_pm25, rows_for_csv
+import importlib.util
+
+# 수집 모듈이 httpx를 쓴다. 설치 없는 CI 단위 잡에서는 건너뛰고, 의존성을 설치하는 smoke 잡에서 실행한다.
+HTTPX_AVAILABLE = importlib.util.find_spec("httpx") is not None
+if HTTPX_AVAILABLE:
+    from scripts.export_airkorea_history import fetch_pm25, rows_for_csv
 
 
+@unittest.skipUnless(HTTPX_AVAILABLE, "httpx 미설치 (CI smoke 잡에서 실행)")
 class ExportHistoryTest(unittest.TestCase):
     def test_reads_pm25_from_api_response(self):
         fixture = Path(__file__).resolve().parent.parent / "app/fixtures/airkorea_sample.json"

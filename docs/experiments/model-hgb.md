@@ -1,4 +1,6 @@
-# PM2.5 학습 모델 (#3)
+# 부스팅 모델 실험 기록 (#3)
+
+> 초기 모델 실험 기록입니다(`feature/air-quality-model`). 서비스에는 90일 실측으로 같은 조건 비교를 한 뒤 릿지 회귀를 채택했고, 그 결과는 [docs/model-ai.md](../model-ai.md)에 있습니다. 모델 코드(`app/forecast/model.py`)는 위 브랜치에 남아 있습니다.
 
 ## 실행 방법
 
