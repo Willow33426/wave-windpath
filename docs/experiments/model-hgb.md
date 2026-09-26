@@ -4,7 +4,9 @@
 
 ## 실행 방법
 
-프로젝트 루트에서 다음 명령을 순서대로 실행한다.
+이 절의 `evaluate_model.py`와 `app/forecast/model.py`는 실험 브랜치
+`feature/air-quality-model`에만 있다. 실험을 재현하려면 해당 브랜치에서
+프로젝트 루트 기준으로 다음 명령을 순서대로 실행한다.
 
 ```cmd
 python -m pip install -r requirements.txt
@@ -52,9 +54,9 @@ python scripts\evaluate_model.py data\history_export\history.csv --hours 12 --sp
 
 `data/demo_model.joblib`은 로컬 동작 확인용이며 운영 모델이 아니다. 서버에는 검증된 실데이터 모델을 아직 연결하지 않았다. 실관측 이력이 충분히 쌓이면 누락값과 데이터 출처를 확인하고 실데이터로 다시 학습·평가해야 한다.
 
-## 서버 입력 연결 준비
+## 실험 브랜치의 서버 입력 연결
 
-`app.forecast.inputs.build_features(conn, hours=12)`는 SQLite의 순천 PM2.5·풍향·풍속 관측, 광양(없으면 여수) PM2.5 관측, 순천 풍향·풍속 예보를 `predict()` 입력으로 묶는다. 현재 시각까지 수집된 값만 읽으며, PM2.5 실측이 없으면 빈 이력을 반환한다. `GET /api/citizen/forecast?location=suncheon&hours=12`가 이 입력으로 예측을 실행해 #1 응답 형식으로 돌려준다. 실측으로 검증된 운영 모델 파일이 없으면 기준선을 사용한다.
+실험 브랜치의 `app.forecast.inputs.build_features(conn, hours=12)`는 SQLite의 순천 PM2.5·풍향·풍속 관측, 광양(없으면 여수) PM2.5 관측, 순천 풍향·풍속 예보를 `predict()` 입력으로 묶는다. 현재 시각까지 수집된 값만 읽으며, PM2.5 실측이 없으면 빈 이력을 반환한다. 실험 브랜치에는 이 입력을 쓰는 시민 예보 API도 있다. 서비스의 실제 구현은 #20과 #21을 따른다.
 
 PR #18의 `data_origin` 열이 있으면 평상시 예측 입력에서 fixture 행을 제외한다. 수집기가 fixture 폴백 상태를 표시한 경우에만 fixture를 화면 응답에 포함하고 `is_fallback`으로 표시한다.
 
