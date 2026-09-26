@@ -69,7 +69,7 @@ flowchart LR
 
 - 백엔드: Python, FastAPI
 - 예측 모델: 예측 시간마다 따로 학습한 릿지 회귀 14개. 외부 패키지 없이 학습·추론하고, 서버는 계수 파일(`app/forecast/ridge_model.json`)만 읽습니다. 입력이 모자라면 기준선(지금 값 유지·풍향 규칙)으로 자동 전환합니다.
-- 프론트엔드: 단일 HTML·CSS·JS(외부 라이브러리 없음). 대회 서버 Nginx가 첫 화면을 제공하고 `/api/`는 FastAPI로 넘깁니다.
+- 프론트엔드: 단일 HTML·CSS·JS(외부 라이브러리 없음, 글꼴만 CDN). 첫 화면은 실제 풍향으로 흐르는 바람 입자와 산단 방위를 그린 캔버스입니다. 대회 서버 Nginx가 첫 화면을 제공하고 `/api/`는 FastAPI로 넘깁니다.
 - 배포: 대회 제공 서버, 팀 a8 (<https://a8.scnuoss.net/> → 내부 포트 3108). 사용자 권한 Supervisor와 crontab `@reboot`
 - AI 코딩 도구: OpenAI Codex, Claude Code. 두 도구 모두 [AGENTS.md](AGENTS.md) 규칙을 따릅니다.
 
@@ -242,3 +242,5 @@ git pull --ff-only origin main && sh deploy/deploy.sh
 | python-dotenv | `.env` 읽기 | BSD-3-Clause |
 | Supervisor | 서버 프로세스 관리 | BSD 계열(Repoze) |
 | scikit-learn, NumPy | 모델 비교 실험(`scripts/compare_models.py`)에만 사용, 서비스에는 미포함 | BSD-3-Clause |
+| Pretendard | 화면 한글 글꼴(jsDelivr) | SIL OFL 1.1 |
+| Big Shoulders Display | 화면 숫자 글꼴(Google Fonts) | SIL OFL 1.1 |
