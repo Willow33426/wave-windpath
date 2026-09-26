@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import csv
 import statistics
 import sys
 from datetime import timedelta
@@ -13,7 +14,19 @@ sys.path.insert(0, str(ROOT))
 
 from app.forecast.baseline import Observation, persistence_forecast
 from app.forecast.model import make_features, train_models
-from scripts.evaluate_baseline import load_rows
+from scripts.evaluate_baseline import _float, load_rows
+
+
+def load_observed_weather(path: Path) -> dict:
+    """동일 시각의 관측·재분석 기상을 읽는다. 미래 예보로 취급하지 않는다."""
+    weather = {}
+    with path.open(encoding="utf-8-sig", newline="") as f:
+        for row in csv.DictReader(f):
+            time = (row.get("time") or "").strip()
+            if time:
+                weather[time] = (_float(row.get("wind_direction")),
+                                 _float(row.get("wind_speed")))
+    return weather
 
 
 def main() -> None:
@@ -21,11 +34,17 @@ def main() -> None:
     parser.add_argument("csv", type=Path)
     parser.add_argument("--hours", type=int, default=12)
     parser.add_argument("--split", type=float, default=0.8)
+    parser.add_argument(
+        "--observed-weather", type=Path,
+        help="같은 시각의 관측·재분석 기상 CSV (탐색적 비교 전용; 미래 예보가 아님)",
+    )
     args = parser.parse_args()
 
     rows = load_rows(args.csv)
     if not rows:
         raise SystemExit("CSV에 데이터가 없습니다.")
+    observed_weather = (load_observed_weather(args.observed_weather)
+                        if args.observed_weather else {})
 
     # 학습 함수에 전달할 CSV 형태로 변환한다.
     training_rows = [
@@ -33,8 +52,8 @@ def main() -> None:
             "time": row["time"].isoformat(),
             "pm25": row["pm25"],
             "upwind_pm25": row["upwind_pm25"],
-            "wind_direction": row["wind_direction"],
-            "wind_speed": row["wind_speed"],
+            "wind_direction": observed_weather.get(row["time"].isoformat(), (None, None))[0],
+            "wind_speed": observed_weather.get(row["time"].isoformat(), (None, None))[1],
         }
         for row in rows
     ]
@@ -72,8 +91,8 @@ def main() -> None:
         features = make_features(
             target_history,
             upwind_history,
-            rows[i]["wind_direction"],
-            rows[i]["wind_speed"],
+            training_rows[i]["wind_direction"],
+            training_rows[i]["wind_speed"],
             origin,
         )
         if features is None:
@@ -111,7 +130,10 @@ def main() -> None:
         print(f"동일 표본 persistence MAE: {statistics.fmean(base_errors):.2f} ㎍/㎥")
     else:
         print("채점 가능한 예측이 없습니다.")
-    print("주의: 데모 데이터 결과는 실제 서비스 성능이 아닙니다.")
+    if args.observed_weather:
+        print("주의: 기상 관측·재분석 값을 쓴 탐색적 결과입니다. 실시간 이용 가능성은 검증되지 않았습니다.")
+    else:
+        print("기상 입력 없이 평가했습니다. 과거 발행 예보가 없어 wind_rule과의 운영 성능 비교는 보류합니다.")
 
 
 if __name__ == "__main__":

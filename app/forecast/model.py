@@ -121,6 +121,13 @@ def train_models(
         if not x_train:
             raise ValueError(f"{horizon}시간 예측에 사용할 학습 자료가 없습니다.")
 
+        # HistGradientBoostingRegressor는 한 특성의 학습값이 모두 NaN이면
+        # 구간 경계를 만들 수 없다. 완전히 없는 특성은 상수로 두어 사용하지 않는다.
+        for column in range(len(FEATURE_NAMES)):
+            if all(not math.isfinite(values[column]) for values in x_train):
+                for values in x_train:
+                    values[column] = 0.0
+
         model = HistGradientBoostingRegressor(
             max_iter=100,
             min_samples_leaf=5,

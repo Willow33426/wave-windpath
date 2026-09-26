@@ -25,6 +25,17 @@ class ModelTest(unittest.TestCase):
         models = train_models(rows, hours=2)
         self.assertEqual(set(models), {1, 2})
 
+    def test_training_accepts_entirely_missing_weather_columns(self):
+        rows = [{
+            "time": (START + timedelta(hours=i)).isoformat(),
+            "pm25": 20.0 + i % 6,
+            "upwind_pm25": 25.0 + i % 4,
+            "wind_direction": None,
+            "wind_speed": None,
+        } for i in range(80)]
+        models = train_models(rows, hours=2)
+        self.assertEqual(set(models), {1, 2})
+
     def test_missing_model_uses_wind_rule_then_persistence(self):
         history = [Observation(START + timedelta(hours=i), 20.0, 101.0, 3.0)
                    for i in range(4)]

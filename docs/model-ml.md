@@ -22,10 +22,27 @@ python scripts\evaluate_model.py data\demo_history.csv --hours 12 --split 0.8
 | 방법 | 전체 MAE (㎍/㎥) |
 |---|---:|
 | Persistence | 2.41 |
-| Wind rule | 2.31 |
+| Wind rule (과거 발행 예보 없음, persistence로 폴백) | 2.41 |
 | 학습 모델 | 2.01 |
 
-이 수치는 가상 데이터에서 나온 결과이며 실제 서비스 성능이 아니다. `evaluate_model.py`는 ML과 persistence를 같은 기준 시각·예측 시간·정답에 대해 함께 채점한다. 현재 wind rule 평가는 미래의 실제 풍향·풍속을 예보 대신 사용하므로, 운영 환경에서 동일한 입력 조건의 비교로 해석할 수 없다. 운영 모델 선정은 실제 시각에 이용 가능했던 예보를 기록한 뒤 같은 조건으로 다시 평가해야 한다.
+이 수치는 가상 데이터에서 나온 결과이며 실제 서비스 성능이 아니다. `evaluate_model.py`는 ML과 persistence를 같은 기준 시각·예측 시간·정답에 대해 함께 채점한다. PR #18 이후 과거 발행 예보가 없는 평가에서 wind rule은 persistence로 폴백한다. 운영 모델 선정은 실제 시각에 이용 가능했던 예보를 기록한 뒤 같은 조건으로 다시 평가해야 한다.
+
+## 90일 실측 평가 (2026-09-26 수령)
+
+팀 제공 자료 `history_delivery_20260926.zip`의 `history.csv`는 2026-06-23 00:00부터 2026-09-20 23:00(KST)까지 시간별 2,160행이다. 순천 PM2.5가 있는 시간은 1,944행(90.0%)이다. 압축 해제 자료는 Git에서 제외되는 `data/history_export/`에 보관한다. `summary.json`의 순천 2,076건은 시간별 CSV의 비결측 행 수와 다르다. 집계 기준은 확인이 필요하며 시간별 평가의 표본 수로 사용하지 않는다.
+
+```cmd
+python scripts\evaluate_baseline.py data\history_export\history.csv --hours 12 --split 0.8
+python scripts\evaluate_model.py data\history_export\history.csv --hours 12 --split 0.8
+python scripts\evaluate_model.py data\history_export\history.csv --hours 12 --split 0.8 --observed-weather data\history_export\weather_observed.csv
+```
+
+| 평가 | ML MAE | 동일 표본 persistence MAE | 해석 |
+|---|---:|---:|---|
+| PM2.5와 시간 특성만 사용 | 3.79 | 3.63 | ML이 기준선보다 낮은 성능 |
+| 같은 시각의 관측·재분석 기상 사용 | 3.61 | 3.63 | 탐색적 결과. 차이가 0.02로 작고 실시간 이용 가능성 미검증 |
+
+검증 시작은 2026-09-03 00:00 KST이며 분할 비율은 0.8이다. 기준선 단독 스크립트의 전체 persistence MAE는 3.61이지만 ML과 동일 표본으로 비교한 값은 3.63이다. 기상 자료는 Open-Meteo Historical Weather API의 관측·재분석 자료로, 과거에 발표된 예보가 아니다. 이를 `--weather-forecast`에 넣지 않는다. 당시 발행 예보가 없으므로 wind rule은 persistence로 평가되고, 현재 결과만으로 ML 운영 모델을 선택하지 않는다.
 
 ## 모델 저장과 제한
 
