@@ -130,7 +130,13 @@ async def _call_llm(template: str, settings: Settings,
         headers = {"x-goog-api-key": settings.llm_api_key}
         body = {"systemInstruction": {"parts": [{"text": SYSTEM_PROMPT}]},
                 "contents": [{"parts": [{"text": template}]}],
-                "generationConfig": {"maxOutputTokens": 220}}
+                # Gemini 3의 출력 한도에는 내부 사고 토큰도 포함된다. 짧은 한도만 두면
+                # HTTP 200이어도 최종 문장이 비거나 잘릴 수 있으므로 사고 수준을 최소로
+                # 고정하고 2~3문장을 마칠 여유를 둔다.
+                "generationConfig": {
+                    "maxOutputTokens": 512,
+                    "thinkingConfig": {"thinkingLevel": "minimal"},
+                }}
     else:
         raise ValueError("지원하지 않는 제공자")
 
