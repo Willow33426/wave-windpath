@@ -16,6 +16,8 @@ from app.config import Settings
 
 MAX_TEXT = 300
 MODEL_NAME = re.compile(r"^[A-Za-z0-9._-]{1,80}$")
+BANNED_WORDS = ("확실", "반드시", "보장", "원인", "배출", "유발", "오염원",
+                "산단", "산업단지", "공장", "제철")
 SYSTEM_PROMPT = (
     "당신은 순천시 대기질 안내 문구 편집자입니다. 제공된 문장만 자연스럽게 다듬어 "
     "한국어 2~3문장으로 답하세요. 수치·시각·등급·풍향을 바꾸거나 새로운 사실을 "
@@ -89,21 +91,30 @@ def _valid_answer(answer: str, template: str, data: dict) -> bool:
         return False
     if not 2 <= len(re.findall(r"[.!?。](?:\s|$)", text)) <= 3:
         return False
-    if "참고" not in text or "PM2.5" not in text:
+    if "참고" not in text or not any(label in text for label in ("PM2.5", "초미세먼지")):
         return False
-    if any(word in text for word in ("확실", "반드시", "보장", "산단", "원인")):
+    # 부정문 판별은 "좋지 않습니다" 같은 문장으로 쉽게 우회되고, 시설명이 든 문장은
+    # "산단이 초미세먼지를 만들어내므로"처럼 금칙어 없이도 원인 단정이 된다. 그래서
+    # 원인 표현과 시설명은 안전해 보이는 문장이라도 쓰지 않고 템플릿으로 돌아간다.
+    if any(word in text for word in BANNED_WORDS):
         return False
     current = data.get("current") or {}
     forecast = next((item for item in data.get("forecast", []) if item.get("pm25_predicted") is not None), None)
     required = []
     if current.get("pm25") is not None:
-        required += ["관측", f"{current['pm25']:g}", current.get("air_quality") or "",
+        required += [f"{current['pm25']:g}", current.get("air_quality") or "",
                      _when(current.get("pm25_observed_at") or data.get("observed_at")) or ""]
     if current.get("wind_direction_label"):
         required.append(current["wind_direction_label"])
     if forecast:
-        required += ["예측", f"{forecast['pm25_predicted']:g}", forecast.get("air_quality") or "",
-                     _when(forecast.get("forecast_time")) or ""]
+        required += ["예측", f"{forecast['pm25_predicted']:g}", forecast.get("air_quality") or ""]
+        try:
+            forecast_hour = datetime.fromisoformat(forecast["forecast_time"]).hour
+        except (KeyError, TypeError, ValueError):
+            forecast_hour = None
+        # "4시"가 "14시" 안에서 찾아지지 않도록 앞자리가 숫자가 아닌 경우만 인정한다.
+        if forecast_hour is not None and not re.search(rf"(?<!\d){forecast_hour}시", text):
+            return False
     if any(value and value not in text for value in required):
         return False
     # 템플릿 밖의 숫자·시간을 추가한 답은 사용하지 않는다.
@@ -159,6 +170,10 @@ async def build_briefing(data: dict, settings: Settings, budget: CallBudget) -> 
     if not (settings.llm_api_key and settings.llm_model and settings.llm_provider in ("openai", "gemini")):
         return result
     if len(template) > 600:
+        return result
+    # 권고에 시설명이 있으면('산단 쪽 바람…') LLM 문장은 검증을 통과할 수 없으므로 부르지 않고,
+    # 권고 문구를 템플릿 그대로 보여 준다.
+    if any(word in template for word in BANNED_WORDS):
         return result
     if not budget.allow():
         return result

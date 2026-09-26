@@ -5,7 +5,7 @@ import json
 import unittest
 from unittest.mock import AsyncMock, patch
 
-from app.briefing import CallBudget, _call_llm, build_briefing, template_briefing
+from app.briefing import CallBudget, _call_llm, _valid_answer, build_briefing, template_briefing
 from app.config import Settings
 
 
@@ -49,6 +49,58 @@ class BriefingTest(unittest.TestCase):
                 with patch("app.briefing._call_llm", new_callable=AsyncMock, side_effect=reply if isinstance(reply, Exception) else None, return_value=reply if isinstance(reply, str) else None):
                     result = asyncio.run(build_briefing(SAMPLE, settings, CallBudget()))
                 self.assertEqual(result["source"], "template")
+
+    def test_accepts_verified_gemini_paraphrase(self):
+        reply = (
+            "9월 26일 13시 순천의 초미세먼지 농도는 20㎍/㎥로 보통 수준이며, "
+            "동남동풍이 불고 있습니다. 14시 예측값도 24㎍/㎥로 보통이 예상되나, "
+            "예측치는 참고용으로 확인하시기 바랍니다. 짧게 환기하는 것을 권장합니다."
+        )
+        self.assertTrue(_valid_answer(reply, template_briefing(SAMPLE), SAMPLE))
+
+    def test_rejects_industrial_or_cause_wording(self):
+        # 템플릿에 없는 시설·원인 표현은 부정문이어도 템플릿으로 돌아간다.
+        head = ("9월 26일 13시 순천 PM2.5는 20㎍/㎥로 보통이며 동남동풍입니다. "
+                "14시 예측값은 24㎍/㎥로 보통이며 ")
+        template = template_briefing(SAMPLE)
+        self.assertTrue(_valid_answer(f"{head}짧게 환기하세요. 예측은 참고용입니다.", template, SAMPLE))
+        for claim in ("산단 배출 때문에 공기가 좋지 않습니다",
+                      "산업단지가 오염 원인입니다",
+                      "오염 원인은 산단입니다",
+                      "산단 방향 바람은 오염 원인을 뜻하지 않습니다"):
+            with self.subTest(claim=claim):
+                self.assertFalse(_valid_answer(f"{head}{claim}. 예측은 참고용입니다.", template, SAMPLE))
+
+    def test_facility_names_in_llm_output_fall_back(self):
+        # 권고에 '산단 쪽 바람'이 있어도 시설명이 든 LLM 문장은 원인 단정이 될 수 있다(#27 리뷰).
+        data = {**SAMPLE, "recommendation": {"summary": "산단 쪽 바람, 짧게만 환기하세요"}}
+        reply = ("9월 26일 13시 순천 초미세먼지는 20㎍/㎥로 보통이며 동남동풍입니다. "
+                 "14시 예측값은 24㎍/㎥로 보통이니 참고용으로 보세요. {advice}.")
+        template = template_briefing(data)
+        for advice in ("산단이 초미세먼지를 만들어내므로 짧게만 환기하세요",
+                       "산단 쪽 바람이라 짧게만 환기하세요"):
+            with self.subTest(advice=advice):
+                self.assertFalse(_valid_answer(reply.format(advice=advice), template, data))
+
+    def test_industrial_advice_keeps_template_without_llm_call(self):
+        data = {**SAMPLE, "recommendation": {"summary": "산단 쪽 바람, 짧게만 환기하세요"}}
+        settings = Settings(llm_provider="gemini", llm_model="test-model", llm_api_key="test-only")
+        with patch("app.briefing._call_llm", new_callable=AsyncMock) as call:
+            result = asyncio.run(build_briefing(data, settings, CallBudget()))
+        self.assertEqual(result["source"], "template")
+        self.assertIn("산단 쪽 바람, 짧게만 환기하세요", result["text"])
+        call.assert_not_awaited()
+
+    def test_forecast_hour_is_not_matched_inside_another_hour(self):
+        data = {**SAMPLE, "observed_at": "2026-09-26T03:00:00+09:00",
+                "current": {"pm25": 14.0, "air_quality": "좋음", "wind_direction_label": "동남동"},
+                "forecast": [{"forecast_time": "2026-09-26T04:00:00+09:00",
+                              "pm25_predicted": 16.0, "air_quality": "보통"}]}
+        reply = ("9월 26일 3시 순천 초미세먼지는 14㎍/㎥로 좋음이며 동남동풍입니다. "
+                 "{hour} 예측값은 16㎍/㎥로 보통이니 참고용으로 보세요. 짧게 환기하세요.")
+        template = template_briefing(data)
+        self.assertTrue(_valid_answer(reply.format(hour="4시"), template, data))
+        self.assertFalse(_valid_answer(reply.format(hour="14시"), template, data))
 
     def test_budget_blocks_excess_calls(self):
         ticks = [0.0]
