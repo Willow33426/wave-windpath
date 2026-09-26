@@ -126,8 +126,12 @@ def build_citizen_forecast(conn, settings: Settings, location: str = "suncheon",
         raise ValueError("hours는 1~24여야 합니다")
 
     now = now or datetime.now(KST)
+    # 현재 상태의 기준은 collector가 매 수집마다 기록하는 meta다. 가장 최근 수집이
+    # 실데이터면 DB에 남은 과거 fixture 행을 현재값·예측 입력에서 뺀다.
+    # 수집이 폴백 중일 때만 fixture를 쓰고, 화면에 is_fallback으로 알린다.
+    is_fallback = db.get_meta(conn, META_LAST_FALLBACK, "0") == "1"
     rows = db.query_measurements(
-        conn, since=now - timedelta(hours=24), limit=2000, include_fixture=True,
+        conn, since=now - timedelta(hours=24), limit=2000, include_fixture=is_fallback,
     )
     target_history = _history(rows, "suncheon")
     upwind_history = _history(rows, "gwangyang") + _history(rows, "yeosu")
@@ -144,9 +148,6 @@ def build_citizen_forecast(conn, settings: Settings, location: str = "suncheon",
     ][:hours]
 
     weather_by_time = {point.time: point for point in weather}
-    # 과거 fixture 행이 DB에 남아 있어도 가장 최근 수집이 실데이터면 폴백으로
-    # 표시하지 않는다. collector가 매 수집마다 기록하는 meta가 현재 상태의 기준이다.
-    is_fallback = db.get_meta(conn, META_LAST_FALLBACK, "0") == "1"
     for item in forecast:
         target = datetime.fromisoformat(item["forecast_time"])
         point = weather_by_time.get(target)

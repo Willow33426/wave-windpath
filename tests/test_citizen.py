@@ -67,6 +67,25 @@ class CitizenForecastTest(unittest.TestCase):
 
         self.assertFalse(result["is_fallback"])
 
+    def test_live_collection_ignores_leftover_fixture_rows(self):
+        # 폴백 때 들어온 fixture가 실측보다 늦은 시각으로 남아 있어도,
+        # 가장 최근 수집이 실데이터면 현재값·예측에 쓰지 않는다.
+        leftover = self.now.replace(minute=15)
+        db.upsert_records(self.conn, [
+            Record("airkorea", "suncheon", "observation", leftover, leftover, "pm25", 99, "ug/m3", "fixture"),
+        ], self.now)
+
+        live = build_citizen_forecast(self.conn, self.settings, now=self.now)
+        self.assertFalse(live["is_fallback"])
+        self.assertEqual(live["current"]["pm25"], 23)
+        self.assertTrue(all(item["pm25_predicted"] < 60 for item in live["forecast"]))
+
+        # 수집이 폴백 중이면 fixture를 쓰되 화면에 폴백으로 알린다.
+        db.set_meta(self.conn, META_LAST_FALLBACK, "1")
+        fallback = build_citizen_forecast(self.conn, self.settings, now=self.now)
+        self.assertTrue(fallback["is_fallback"])
+        self.assertEqual(fallback["current"]["pm25"], 99)
+
     def test_invalid_parameters_are_rejected(self):
         with self.assertRaises(ValueError):
             build_citizen_forecast(self.conn, self.settings, location="gwangyang", now=self.now)
