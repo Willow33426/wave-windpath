@@ -112,6 +112,22 @@ class CitizenForecastTest(unittest.TestCase):
         self.assertEqual([i["pm25_predicted"] for i in general["forecast"]],
                          [i["pm25_predicted"] for i in sensitive["forecast"]])
 
+    def test_good_air_copy_matches_weak_industrial_wind(self):
+        observed = self.now.replace(minute=0, second=0, microsecond=0)
+        cases = ((115, 0.4, "미세먼지 '좋음'이고 산단 쪽 바람은 거의 없어요."),   # 산단 방향, 약한 바람
+                 (250, 3.0, "미세먼지 '좋음'이고 산단 쪽 바람이 아닙니다."))     # 다른 방향
+        for direction, speed, expected in cases:
+            with self.subTest(direction=direction):
+                db.upsert_records(self.conn, [
+                    Record("airkorea", "suncheon", "observation", observed, observed, "pm25", 9, "ug/m3"),
+                    Record("kma", "suncheon", "observation", observed, observed, "wind_direction", direction, "deg"),
+                    Record("kma", "suncheon", "observation", observed, observed, "wind_speed", speed, "m/s"),
+                ], self.now)
+                result = build_citizen_forecast(self.conn, self.settings, now=self.now)
+                self.assertEqual(result["current"]["industrial_influence"]["level"], "low")
+                self.assertEqual(result["recommendation"]["summary"], "지금 환기하기 좋아요")
+                self.assertTrue(result["recommendation"]["ventilation"]["text"].startswith(expected))
+
     def test_invalid_parameters_are_rejected(self):
         with self.assertRaises(ValueError):
             build_citizen_forecast(self.conn, self.settings, location="gwangyang", now=self.now)

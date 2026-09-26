@@ -235,7 +235,11 @@ def _recommendation(current: dict | None, forecast: list[dict], sensitive: bool 
         text = "미세먼지 '보통' 수준입니다. 10분 정도 짧게 환기하세요." + tail
     else:
         status, summary = "good", "지금 환기하기 좋아요"
-        text = "미세먼지 '좋음'이고 산단 쪽 바람이 아닙니다." + tail
+        # 풍향은 산단 쪽이지만 약하거나 비껴 부는 경우(low)에는 "아닙니다"라고 하면
+        # 아래 관측 문구("산단 방향이지만 바람이 약합니다")와 어긋난다.
+        upwind = ((current or {}).get("industrial_influence") or {}).get("upwind_facilities")
+        text = ("미세먼지 '좋음'이고 산단 쪽 바람은 거의 없어요." if upwind
+                else "미세먼지 '좋음'이고 산단 쪽 바람이 아닙니다.") + tail
 
     values = [v for v in [pm_now] + [item.get("pm25_predicted") for item in forecast] if v is not None]
     peak = max(values, default=None)
