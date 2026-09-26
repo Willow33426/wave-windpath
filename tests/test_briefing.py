@@ -29,6 +29,13 @@ class BriefingTest(unittest.TestCase):
         self.assertIn("참고용", text)
         self.assertEqual(text.count("."), 4)  # PM2.5의 점 + 3문장
 
+    def test_pm25_uses_its_own_observation_time(self):
+        data = {**SAMPLE, "observed_at": "2026-09-26T14:00:00+09:00",
+                "current": {**SAMPLE["current"], "pm25_observed_at": "2026-09-26T13:00:00+09:00"}}
+        result = asyncio.run(build_briefing(data, Settings(), CallBudget()))
+        self.assertIn("13시 순천 PM2.5 관측값", result["text"])
+        self.assertEqual(result["observed_at"], data["current"]["pm25_observed_at"])
+
     def test_missing_key_returns_template_without_call(self):
         with patch("app.briefing._call_llm", new_callable=AsyncMock) as call:
             result = asyncio.run(build_briefing(SAMPLE, Settings(), CallBudget()))

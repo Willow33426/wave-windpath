@@ -5,7 +5,7 @@ import pathlib
 import sys
 import tempfile
 import unittest
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
@@ -47,6 +47,10 @@ class CitizenForecastApiTest(unittest.TestCase):
         self.assertEqual(len(result["forecast"]), 12)
         self.assertIn("recommendation", result)
         self.assertIn("data_sources", result)
+        pm_rows = db.query_measurements(self.conn, station="suncheon", metric="pm25",
+                                        kind="observation", include_fixture=True)
+        self.assertEqual(result["current"]["pm25_observed_at"],
+                         max(row["target_time"] for row in pm_rows))
 
         first = result["forecast"][0]
         for key in ("forecast_time", "pm25_predicted", "air_quality", "wind_direction",
@@ -89,6 +93,20 @@ class CitizenForecastApiTest(unittest.TestCase):
         self.assertIn("참고용", public.json()["text"])
         self.assertEqual(public.json(), internal.json())
         call.assert_not_called()
+
+    def test_briefing_cache_separates_sensitive_profile(self):
+        from fastapi.testclient import TestClient
+        from app.cache import ResponseCache
+
+        answer = {"text": "검증용 브리핑", "source": "llm", "observed_at": None}
+        with patch("app.main.briefing_cache", ResponseCache(ttl_sec=300)), \
+             patch("app.main.build_briefing", new_callable=AsyncMock, return_value=answer) as build:
+            client = TestClient(self.app)
+            first = client.get("/api/citizen/briefing")
+            second = client.get("/api/citizen/briefing")
+            sensitive = client.get("/api/citizen/briefing?sensitive=true")
+        self.assertEqual([first.status_code, second.status_code, sensitive.status_code], [200, 200, 200])
+        self.assertEqual(build.await_count, 2)
 
 
 if __name__ == "__main__":

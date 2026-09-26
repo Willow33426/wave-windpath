@@ -87,12 +87,17 @@ GET /api/citizen/forecast?location=suncheon&hours=12
 LLM 키는 서버에만 보관하며 응답·로그·정적 화면에 넣지 않는다. 브리핑 결과는
 마지막 수집 시각별로 5분간 캐시하고, 단일 워커에서 LLM 호출을 분당 10회로 제한한다.
 화면은 브리핑 본문을 `textContent`로 표시한다.
+실제 키를 서버의 `app/.env`에 설정한 뒤 `python -m scripts.smoke_briefing_llm`을
+실행하면 합성 관측값으로 외부 API 요청을 딱 한 번 검증한다. 결과에는 키와
+응답 본문을 출력하지 않는다. 성공 후 브라우저에서 브리핑 출처가 `AI 문장`으로
+표시되는지도 확인한다.
 
 `current` 객체
 
 | 필드 | 타입 | null | 설명 |
 |---|---|---|---|
 | `pm25`, `pm10` | number | O | 관측 농도 ㎍/㎥ |
+| `pm25_observed_at` | datetime | O | PM2.5 값 자체의 관측 시각. 브리핑에서 이 시각을 사용 |
 | `air_quality` | string | O | `좋음` \| `보통` \| `나쁨` \| `매우나쁨` (PM2.5 기준 `≤15` / `≤35` / `≤75` / `>75`. 예측값은 소수가 나오므로 구간이 아니라 부등호로 정한다) |
 | `wind_direction` | int | O | 0~359 |
 | `wind_direction_label` | string | O | `남남서` 같은 16방위 한글 표기 |

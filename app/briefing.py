@@ -38,7 +38,7 @@ def template_briefing(data: dict) -> str:
     """관측과 예측을 구분해 시각·수치·풍향·행동을 3문장으로 설명한다."""
     current = data.get("current") or {}
     forecast = next((item for item in data.get("forecast", []) if item.get("pm25_predicted") is not None), None)
-    observed = _when(data.get("observed_at"))
+    observed = _when(current.get("pm25_observed_at") or data.get("observed_at"))
     pm = current.get("pm25")
     if pm is None or observed is None:
         first = "최신 순천 PM2.5 관측값을 확인하지 못했습니다."
@@ -98,7 +98,7 @@ def _valid_answer(answer: str, template: str, data: dict) -> bool:
     required = []
     if current.get("pm25") is not None:
         required += ["관측", f"{current['pm25']:g}", current.get("air_quality") or "",
-                     _when(data.get("observed_at")) or ""]
+                     _when(current.get("pm25_observed_at") or data.get("observed_at")) or ""]
     if current.get("wind_direction_label"):
         required.append(current["wind_direction_label"])
     if forecast:
@@ -145,7 +145,8 @@ async def _call_llm(template: str, settings: Settings) -> str:
 
 async def build_briefing(data: dict, settings: Settings, budget: CallBudget) -> dict:
     template = template_briefing(data)
-    result = {"text": template, "source": "template", "observed_at": data.get("observed_at")}
+    observed_at = (data.get("current") or {}).get("pm25_observed_at")
+    result = {"text": template, "source": "template", "observed_at": observed_at}
     if not (settings.llm_api_key and settings.llm_model and settings.llm_provider in ("openai", "gemini")):
         return result
     if len(template) > 600:
@@ -155,7 +156,7 @@ async def build_briefing(data: dict, settings: Settings, budget: CallBudget) -> 
     try:
         answer = await _call_llm(template, settings)
         if isinstance(answer, str) and _valid_answer(answer, template, data):
-            return {"text": answer.strip(), "source": "llm", "observed_at": data.get("observed_at")}
+            return {"text": answer.strip(), "source": "llm", "observed_at": observed_at}
     except Exception:  # noqa: BLE001 - 외부 응답 오류는 모두 템플릿으로 복구한다.
         # 외부 응답·예외 본문에는 키나 요청 URL이 있을 수 있으므로 기록하지 않는다.
         pass
