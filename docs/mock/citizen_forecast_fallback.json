@@ -1,0 +1,251 @@
+{
+  "location": {
+    "id": "suncheon",
+    "name": "순천시",
+    "lat": 34.9506,
+    "lon": 127.4872,
+    "air_station": "순천 연향동",
+    "weather_station": "순천(ASOS 174)"
+  },
+  "updated_at": "2026-09-24T15:20:00+09:00",
+  "observed_at": "2026-09-24T09:00:00+09:00",
+  "is_fallback": true,
+  "data_sources": [
+    {
+      "name": "대기오염정보 조회서비스",
+      "provider": "한국환경공단 에어코리아",
+      "observed_at": "2026-09-24T09:00:00+09:00",
+      "fetched_at": "2026-09-24T09:05:00+09:00",
+      "note": "외부 API 응답 실패로 09:00 캐시를 사용했습니다."
+    }
+  ],
+  "current": {
+    "pm25": 19,
+    "pm10": 31,
+    "air_quality": "보통",
+    "wind_direction": null,
+    "wind_direction_label": null,
+    "wind_speed_mps": null,
+    "temperature_c": null,
+    "industrial_influence": {
+      "level": "unknown",
+      "score": null,
+      "upwind_facilities": [],
+      "note": "풍향 자료가 없어 산단 영향을 판단하지 못했습니다."
+    }
+  },
+  "forecast": [
+    {
+      "forecast_time": "2026-09-24T16:00:00+09:00",
+      "pm25_predicted": 19,
+      "air_quality": "보통",
+      "wind_direction": null,
+      "wind_direction_label": null,
+      "wind_speed_mps": null,
+      "industrial_influence": {
+        "level": "unknown",
+        "score": null,
+        "upwind_facilities": [],
+        "note": "풍향 자료가 없어 산단 영향을 판단하지 못했습니다."
+      },
+      "confidence": null,
+      "is_fallback": true
+    },
+    {
+      "forecast_time": "2026-09-24T17:00:00+09:00",
+      "pm25_predicted": 19,
+      "air_quality": "보통",
+      "wind_direction": null,
+      "wind_direction_label": null,
+      "wind_speed_mps": null,
+      "industrial_influence": {
+        "level": "unknown",
+        "score": null,
+        "upwind_facilities": [],
+        "note": "풍향 자료가 없어 산단 영향을 판단하지 못했습니다."
+      },
+      "confidence": null,
+      "is_fallback": true
+    },
+    {
+      "forecast_time": "2026-09-24T18:00:00+09:00",
+      "pm25_predicted": 19,
+      "air_quality": "보통",
+      "wind_direction": null,
+      "wind_direction_label": null,
+      "wind_speed_mps": null,
+      "industrial_influence": {
+        "level": "unknown",
+        "score": null,
+        "upwind_facilities": [],
+        "note": "풍향 자료가 없어 산단 영향을 판단하지 못했습니다."
+      },
+      "confidence": null,
+      "is_fallback": true
+    },
+    {
+      "forecast_time": "2026-09-24T19:00:00+09:00",
+      "pm25_predicted": 19,
+      "air_quality": "보통",
+      "wind_direction": null,
+      "wind_direction_label": null,
+      "wind_speed_mps": null,
+      "industrial_influence": {
+        "level": "unknown",
+        "score": null,
+        "upwind_facilities": [],
+        "note": "풍향 자료가 없어 산단 영향을 판단하지 못했습니다."
+      },
+      "confidence": null,
+      "is_fallback": true
+    },
+    {
+      "forecast_time": "2026-09-24T20:00:00+09:00",
+      "pm25_predicted": 19,
+      "air_quality": "보통",
+      "wind_direction": null,
+      "wind_direction_label": null,
+      "wind_speed_mps": null,
+      "industrial_influence": {
+        "level": "unknown",
+        "score": null,
+        "upwind_facilities": [],
+        "note": "풍향 자료가 없어 산단 영향을 판단하지 못했습니다."
+      },
+      "confidence": null,
+      "is_fallback": true
+    },
+    {
+      "forecast_time": "2026-09-24T21:00:00+09:00",
+      "pm25_predicted": 19,
+      "air_quality": "보통",
+      "wind_direction": null,
+      "wind_direction_label": null,
+      "wind_speed_mps": null,
+      "industrial_influence": {
+        "level": "unknown",
+        "score": null,
+        "upwind_facilities": [],
+        "note": "풍향 자료가 없어 산단 영향을 판단하지 못했습니다."
+      },
+      "confidence": null,
+      "is_fallback": true
+    },
+    {
+      "forecast_time": "2026-09-24T22:00:00+09:00",
+      "pm25_predicted": 19,
+      "air_quality": "보통",
+      "wind_direction": null,
+      "wind_direction_label": null,
+      "wind_speed_mps": null,
+      "industrial_influence": {
+        "level": "unknown",
+        "score": null,
+        "upwind_facilities": [],
+        "note": "풍향 자료가 없어 산단 영향을 판단하지 못했습니다."
+      },
+      "confidence": null,
+      "is_fallback": true
+    },
+    {
+      "forecast_time": "2026-09-24T23:00:00+09:00",
+      "pm25_predicted": 19,
+      "air_quality": "보통",
+      "wind_direction": null,
+      "wind_direction_label": null,
+      "wind_speed_mps": null,
+      "industrial_influence": {
+        "level": "unknown",
+        "score": null,
+        "upwind_facilities": [],
+        "note": "풍향 자료가 없어 산단 영향을 판단하지 못했습니다."
+      },
+      "confidence": null,
+      "is_fallback": true
+    },
+    {
+      "forecast_time": "2026-09-25T00:00:00+09:00",
+      "pm25_predicted": 19,
+      "air_quality": "보통",
+      "wind_direction": null,
+      "wind_direction_label": null,
+      "wind_speed_mps": null,
+      "industrial_influence": {
+        "level": "unknown",
+        "score": null,
+        "upwind_facilities": [],
+        "note": "풍향 자료가 없어 산단 영향을 판단하지 못했습니다."
+      },
+      "confidence": null,
+      "is_fallback": true
+    },
+    {
+      "forecast_time": "2026-09-25T01:00:00+09:00",
+      "pm25_predicted": 19,
+      "air_quality": "보통",
+      "wind_direction": null,
+      "wind_direction_label": null,
+      "wind_speed_mps": null,
+      "industrial_influence": {
+        "level": "unknown",
+        "score": null,
+        "upwind_facilities": [],
+        "note": "풍향 자료가 없어 산단 영향을 판단하지 못했습니다."
+      },
+      "confidence": null,
+      "is_fallback": true
+    },
+    {
+      "forecast_time": "2026-09-25T02:00:00+09:00",
+      "pm25_predicted": 19,
+      "air_quality": "보통",
+      "wind_direction": null,
+      "wind_direction_label": null,
+      "wind_speed_mps": null,
+      "industrial_influence": {
+        "level": "unknown",
+        "score": null,
+        "upwind_facilities": [],
+        "note": "풍향 자료가 없어 산단 영향을 판단하지 못했습니다."
+      },
+      "confidence": null,
+      "is_fallback": true
+    },
+    {
+      "forecast_time": "2026-09-25T03:00:00+09:00",
+      "pm25_predicted": 19,
+      "air_quality": "보통",
+      "wind_direction": null,
+      "wind_direction_label": null,
+      "wind_speed_mps": null,
+      "industrial_influence": {
+        "level": "unknown",
+        "score": null,
+        "upwind_facilities": [],
+        "note": "풍향 자료가 없어 산단 영향을 판단하지 못했습니다."
+      },
+      "confidence": null,
+      "is_fallback": true
+    }
+  ],
+  "recommendation": {
+    "ventilation": {
+      "status": "caution",
+      "windows": [],
+      "text": "최근 관측값이 6시간 전 자료라 참고용으로만 보세요."
+    },
+    "outdoor": {
+      "status": "caution",
+      "windows": [],
+      "text": "최신 자료가 복구되면 다시 확인하세요."
+    },
+    "summary": "자료 지연으로 예측 신뢰도가 낮습니다."
+  },
+  "reason": "외부 API 장애로 최근 정상값을 그대로 유지(persistence)했습니다.",
+  "model": {
+    "name": "baseline-persistence",
+    "version": "0.1.0",
+    "mae_validation": null,
+    "trained_at": null
+  }
+}
