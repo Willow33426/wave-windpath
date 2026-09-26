@@ -40,7 +40,9 @@ class Station:
 STATIONS: tuple[Station, ...] = (
     Station("suncheon", "순천 연향동", air_station="연향동", nx=70, ny=70, role="target"),
     Station("gwangyang", "광양 태인동", air_station="태인동", nx=73, ny=70, role="upwind"),
-    Station("yeosu", "여수 여천동", air_station="여천동", nx=73, ny=66, role="upwind"),
+    # 에어코리아가 울산 여천동과 구분하려고 측정소 이름을 '여천동(여수)'로 바꿨다(2026-09 확인).
+    # 옛 이름 '여천동'으로 조회하면 정상 코드(00)에 0건이 와서 조용히 결측이 된다.
+    Station("yeosu", "여수 여천동", air_station="여천동(여수)", nx=73, ny=66, role="upwind"),
 )
 
 
