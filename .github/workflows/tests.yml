@@ -54,3 +54,55 @@ jobs:
       # 서버를 띄우지 않고 import만 한다. 의존성 누락과 모듈 수준 오류를 잡는다.
       - name: import 확인
         run: python -c "import app.main; print(app.main.app.title)"
+
+      # FastAPI가 있어야 도는 API 경로 테스트(TestClient)까지 전부 실행한다.
+      - name: FastAPI 포함 전체 테스트
+        run: python -m unittest discover -s tests
+
+  deploy:
+    name: 배포 리허설(supervisord·자동 재시작)
+    runs-on: ubuntu-latest
+    env:
+      INTERNAL_PORT: "3108"
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      # 대회 서버와 같은 방식: 가상환경 + deploy/requirements.txt + 사용자 권한 supervisord
+      - name: 서버와 같은 방식으로 설치
+        run: |
+          python -m venv .venv
+          .venv/bin/pip install -q -r deploy/requirements.txt
+
+      - name: supervisord로 기동하고 응답 확인
+        run: |
+          mkdir -p deploy/.run
+          .venv/bin/supervisord -c deploy/supervisord.conf
+          for i in $(seq 1 30); do curl -fsS http://127.0.0.1:3108/health && break; sleep 1; done
+          echo
+          curl -fsS "http://127.0.0.1:3108/citizen/forecast?location=suncheon&hours=12"             | python -c "import json,sys; d=json.load(sys.stdin); print('시민 예보', len(d['forecast']), '시간 ·', d['model']['name'])"
+          echo "팀 프로세스(한도 2개) — RSS는 KB:"
+          ps -u "$(id -u)" -o pid=,rss=,args= | grep -E "supervisord|app/main.py" | grep -v grep
+
+      # 평가 항목 '재시작 후 구동': 앱이 죽어도 supervisord가 다시 띄워야 한다.
+      - name: 앱을 강제 종료해도 다시 뜨는지
+        run: |
+          OLD=$(pgrep -f "python[0-9.]* .*app/main.py")
+          kill -9 $OLD
+          NEW=""
+          for i in $(seq 1 30); do
+            NEW=$(pgrep -f "python[0-9.]* .*app/main.py" || true)
+            if [ -n "$NEW" ] && [ "$NEW" != "$OLD" ] && curl -fsS http://127.0.0.1:3108/health >/dev/null; then break; fi
+            sleep 1
+          done
+          test -n "$NEW" && test "$NEW" != "$OLD"
+          curl -fsS http://127.0.0.1:3108/health
+          echo
+          echo "자동 재시작 확인: pid $OLD → $NEW"
+
+      - name: 정리
+        if: always()
+        run: .venv/bin/supervisorctl -c deploy/supervisord.conf shutdown || true
