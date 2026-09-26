@@ -12,7 +12,9 @@
 3. 마이페이지 > 개발계정에서 **일반 인증키(Decoding)** 를 복사
 4. `app/.env`의 `DATA_GO_KR_SERVICE_KEY`에 붙여 넣는다 (두 서비스가 같은 키를 쓴다)
 
-승인 전이거나 키가 없으면 앱은 `app/fixtures/`의 샘플로 동작하고 응답에 `is_fallback: true`를 표시한다.
+승인 전이거나 키가 없으면 앱은 `app/fixtures/`의 샘플로 동작한다. 각 행의
+`data_origin`이 `fixture`로 저장되며, 실제 수집값은 `live`다. 응답의 `is_fallback`은
+마지막 수집 실행에서 하나 이상의 fixture를 사용했는지를 나타낸다.
 
 ## 2. 사용 데이터
 
@@ -46,6 +48,9 @@
 
 `measurements` 한 테이블에 관측·예보를 함께 담는다.
 
+- 학습·실측 평가에는 `data_origin='live'`인 행만 사용한다.
+- API에서 fixture를 제외하려면 `/api/observations?include_fixture=false`로 조회한다.
+
 | 컬럼 | 설명 |
 |---|---|
 | `source` | `kma` \| `airkorea` |
@@ -55,6 +60,7 @@
 | `target_time` | 값이 가리키는 시각 |
 | `metric` | `pm25`, `pm10`, `wind_direction`, `wind_speed`, `temperature`, `humidity`, `precipitation_prob` |
 | `value`, `unit` | 숫자와 단위(`ug/m3`, `deg`, `m/s`, `C`, `%`) |
+| `data_origin` | `live`(실수집) \| `fixture`(샘플 폴백) |
 | `collected_at` | 수집 시각 |
 
 기본키가 `(source, station, kind, target_time, metric)`이라 같은 값을 여러 번 수집해도 행이 늘지 않고 최신 값으로 갱신된다.

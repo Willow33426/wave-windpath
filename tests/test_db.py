@@ -60,12 +60,46 @@ class DbTest(unittest.TestCase):
         since = datetime(2026, 9, 24, 15, 30, tzinfo=KST)
         self.assertEqual(len(db.query_measurements(self.conn, since=since)), 1)
 
+    def test_fixture_origin_can_be_filtered(self):
+        live = record(value=20.0)
+        fixture = Record(
+            "airkorea", "gwangyang", "observation", live.base_time, live.target_time,
+            "pm25", 30.0, "ug/m3", data_origin="fixture",
+        )
+        db.upsert_records(self.conn, [live, fixture], self.now)
+
+        all_rows = db.query_measurements(self.conn)
+        live_rows = db.query_measurements(self.conn, include_fixture=False)
+
+        self.assertEqual({row["data_origin"] for row in all_rows}, {"live", "fixture"})
+        self.assertEqual(len(live_rows), 1)
+        self.assertEqual(live_rows[0]["station"], "suncheon")
+
     def test_meta_round_trip(self):
         self.assertIsNone(db.get_meta(self.conn, "last_collected_at"))
         db.set_meta(self.conn, "last_collected_at", self.now.isoformat())
         db.set_meta(self.conn, "last_collected_at", "2026-09-24T16:00:00+09:00")
         self.assertEqual(db.get_meta(self.conn, "last_collected_at"), "2026-09-24T16:00:00+09:00")
         self.assertEqual(db.get_meta(self.conn, "없는키", "0"), "0")
+
+    def test_connect_migrates_existing_database(self):
+        legacy_path = pathlib.Path(self.tmp.name) / "legacy.db"
+        legacy = sqlite3.connect(legacy_path)
+        legacy.execute("""
+            CREATE TABLE measurements (
+                source TEXT NOT NULL, station TEXT NOT NULL, kind TEXT NOT NULL,
+                base_time TEXT NOT NULL, target_time TEXT NOT NULL, metric TEXT NOT NULL,
+                value REAL NOT NULL, unit TEXT NOT NULL, collected_at TEXT NOT NULL,
+                PRIMARY KEY (source, station, kind, target_time, metric)
+            )
+        """)
+        legacy.close()
+
+        migrated = db.connect(legacy_path)
+        columns = {row["name"] for row in migrated.execute("PRAGMA table_info(measurements)")}
+        migrated.close()
+
+        self.assertIn("data_origin", columns)
 
 
 class CollectorFallbackTest(unittest.TestCase):
@@ -83,7 +117,10 @@ class CollectorFallbackTest(unittest.TestCase):
             self.assertTrue(summary["is_fallback"])
             self.assertGreater(summary["records"], 0)
             self.assertEqual(db.get_meta(conn, META_LAST_FALLBACK), "1")
-            self.assertIsNotNone(db.latest_observation(conn, "suncheon", "pm25"))
+            latest = db.latest_observation(conn, "suncheon", "pm25")
+            self.assertIsNotNone(latest)
+            self.assertEqual(latest["data_origin"], "fixture")
+            self.assertEqual(db.query_measurements(conn, include_fixture=False), [])
             conn.close()
 
 

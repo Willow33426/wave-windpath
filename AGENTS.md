@@ -1,6 +1,6 @@
 # 저장소 작업 규칙
 
-팀원과 AI 코딩 도구(Codex 등)가 함께 따르는 규칙이다. 보안·배포 규칙은 강사 예제 저장소 [charsyam/scnu-oss-advanced-track-example](https://github.com/charsyam/scnu-oss-advanced-track-example) (MIT)를 따른다.
+팀원과 AI 코딩 도구(Codex, Claude Code 등)가 함께 따르는 규칙이다. 보안·배포 규칙은 예제 저장소 [charsyam/scnu-oss-advanced-track-example](https://github.com/charsyam/scnu-oss-advanced-track-example) (MIT)를 따른다.
 
 ## 보안
 
@@ -10,6 +10,12 @@
 - 공유용 `.env.example`만 예외로 허용하며, 비밀 정보나 실제 운영 설정을 포함하지 않고 안전한 예시 값만 기록한다.
 - API 키(공공데이터포털, 기상청, LLM, SmartThings)는 `app/.env`에만 둔다. 코드, 문서, 로그, 커밋 메시지, AI 프롬프트에 키 원문을 넣지 않는다.
 - 사용자 위치 등 개인정보는 서버에 저장하지 않는다.
+- LLM API 키는 서버에서만 사용한다. 프론트엔드 JavaScript와 빌드 결과물에 키를 넣지 않는다.
+- LLM 출력과 사용자 입력은 HTML에 넣기 전에 이스케이프한다(XSS 방지).
+- LLM 호출 API에는 요청 횟수 제한과 캐시를 둔다(요금 폭증 방지).
+- 정적 파일은 프론트엔드 빌드 폴더만 공개한다. 프로젝트 루트, `.git`, `.env`를 공개 경로에 두지 않는다.
+- 오류 응답은 일반화하고, 로그에 키·토큰을 남기지 않는다.
+- 인터넷에서 받은 설치 스크립트를 내용 확인 없이 실행하지 않는다.
 
 ## 구조
 
@@ -18,6 +24,7 @@
 - 앱 의존성은 최상위 `requirements.txt`에서 관리한다. `deploy/requirements.txt`는 `-r ../requirements.txt`로 앱 의존성을 포함하고 운영 의존성만 추가한다. 배포 시 최상위 `requirements.txt`도 `WORK_PATH`에 전송한다.
 - 프론트엔드는 빌드한 정적 파일을 FastAPI가 서빙해 포트 하나로 운영한다.
 - 수집한 원본 데이터 캐시는 `data/`에 두고 Git에 커밋하지 않는다.
+- 대회 서버는 팀별 메모리 1.2GB, 프로세스 2개 한도다. 프로세스는 Supervisor와 앱(uvicorn 워커 1개)만 두고, 데이터 수집은 앱 안의 스케줄러로 돌린다. LLM은 외부 API로 호출하고 서버에서 모델을 학습하지 않는다.
 
 ## 협업
 

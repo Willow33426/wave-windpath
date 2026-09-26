@@ -70,6 +70,7 @@ async def index() -> str:
 </html>"""
 
 
+@app.get("/health", include_in_schema=False)
 @app.get("/api/health")
 async def health() -> dict:
     conn = app.state.conn
@@ -101,6 +102,7 @@ async def health() -> dict:
     }
 
 
+@app.get("/observations", include_in_schema=False)
 @app.get("/api/observations")
 async def observations(
     station: str | None = Query(None, description="관측소 키 (suncheon·gwangyang·yeosu)"),
@@ -108,6 +110,7 @@ async def observations(
     kind: str | None = Query(None, pattern="^(observation|forecast)$"),
     hours: int = Query(24, ge=1, le=720, description="최근 몇 시간"),
     limit: int = Query(200, ge=1, le=2000),
+    include_fixture: bool = Query(True, description="fixture 샘플 포함 여부"),
 ) -> dict:
     """수집·정규화된 값을 그대로 돌려준다. 시민 모드 응답 조립은 #3·#6에서 한다."""
     known = {s.key for s in settings.stations}
@@ -118,7 +121,10 @@ async def observations(
 
     conn = app.state.conn
     since = datetime.now(KST) - timedelta(hours=hours)
-    rows = db.query_measurements(conn, station=station, metric=metric, kind=kind, since=since, limit=limit)
+    rows = db.query_measurements(
+        conn, station=station, metric=metric, kind=kind, since=since,
+        limit=limit, include_fixture=include_fixture,
+    )
     return {
         "count": len(rows),
         "is_fallback": db.get_meta(conn, META_LAST_FALLBACK, "0") == "1",

@@ -14,6 +14,9 @@ from app.config import Settings, Station
 from app.sources.parse import KST, UpstreamError
 
 logger = logging.getLogger(__name__)
+# httpx의 INFO 요청 로그에는 serviceKey가 포함된 전체 URL이 기록된다.
+# 수집기와 운영 로그에서 인증키가 노출되지 않도록 요청 요약 로그를 차단한다.
+logging.getLogger("httpx").setLevel(logging.WARNING)
 
 AIRKOREA_URL = ("https://apis.data.go.kr/B552584/ArpltnInforInqireSvc/"
                 "getMsrstnAcctoRltmMesureDnsty")
