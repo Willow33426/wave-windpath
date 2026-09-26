@@ -2,291 +2,432 @@
 <html lang="ko">
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Wave 바람길 · 시민 모드</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#0B1117">
+    <meta name="description" content="순천의 바람 방향과 AI 미세먼지 예측으로 환기·외출 시간을 알려 주는 Wave 바람길">
+    <title>Wave 바람길 · 순천 환기 예보</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%228%22 fill=%22%230B1117%22/%3E%3Ccircle cx=%2216%22 cy=%2216%22 r=%226%22 fill=%22%237CE0D3%22/%3E%3C/svg%3E">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;800&display=swap">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
     <style>
         :root {
-            color-scheme: light;
-            --ink: #17212b;
-            --muted: #607080;
-            --line: #dce7e5;
-            --brand: #147d73;
-            --brand-dark: #0a5a54;
-            --good: #197149;
-            --warn: #a85d12;
-            --bad: #b93631;
-            --panel: #ffffff;
-            --soft: #f2f7f6;
+            color-scheme: dark;
+            --night: #0B1117;   /* 광양만의 밤 */
+            --text: #E9F1F2;
+            --soft: #C9D6DB;
+            --muted: #93A4AE;
+            --line: rgb(255 255 255 / .08);
+            --air: #7CE0D3;     /* 깨끗한 바람 */
+            --sodium: #FF8A3D;  /* 산단 나트륨등 = 산단 쪽 바람 */
+            --good: #4DA3FF;    /* 등급색은 에어코리아 관례: 좋음 파랑·보통 초록·나쁨 노랑·매우나쁨 빨강 */
+            --fair: #3DDC84;
+            --bad: #F5C518;
+            --worst: #F2545B;
+            --num: "Big Shoulders Display", "Pretendard Variable", system-ui, sans-serif;
+            --ui: "Pretendard Variable", Pretendard, system-ui, -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
         }
 
         * { box-sizing: border-box; }
+        html, body { margin: 0; background: var(--night); }
+        body { color: var(--text); font-family: var(--ui); -webkit-font-smoothing: antialiased; }
+        a { color: var(--air); }
+        :focus-visible { outline: 2px solid var(--air); outline-offset: 3px; }
+        h1, h2, p { word-break: keep-all; }
 
-        body {
-            margin: 0;
-            color: var(--ink);
-            background: #eaf1ef;
-            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-        }
+        /* 첫 화면: 실제 풍향으로 흐르는 바람장 위에 결론을 얹는다 */
+        .hero { position: relative; min-height: 78vh; min-height: min(78svh, 660px); overflow: hidden; isolation: isolate; }
+        #field { position: absolute; inset: 0; width: 100%; height: 100%; z-index: -3; }
+        .hero::after { content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none; background: linear-gradient(180deg, rgb(11 17 23 / 0) 28%, rgb(11 17 23 / .82) 64%, var(--night) 96%); }
+        #places { position: absolute; inset: 0; z-index: -2; pointer-events: none; }
+        #places svg { position: absolute; inset: 0; }
+        #places line { stroke: var(--sodium); stroke-width: 1.2; stroke-dasharray: 3 6; opacity: .28; }
+        .industrial #places line { opacity: .75; }
+        .place { position: absolute; transform: translate(-50%, -6px); color: var(--muted); font-size: .72rem; font-weight: 700; white-space: nowrap; }
+        .place::before { content: ""; display: block; width: 8px; height: 8px; margin: 0 auto 6px; border-radius: 50%; background: currentColor; box-shadow: 0 0 14px currentColor; }
+        .place.home { color: var(--text); }
+        .place.home::before { width: 12px; height: 12px; background: var(--air); box-shadow: 0 0 0 7px rgb(124 224 211 / .14), 0 0 26px var(--air); }
+        .place.plant { color: var(--sodium); }
 
-        main {
-            width: min(100%, 760px);
-            min-height: 100vh;
-            margin: 0 auto;
-            background: var(--soft);
-        }
+        .hero-inner { position: relative; max-width: 560px; min-height: inherit; margin: 0 auto; padding: 230px 20px 26px; display: flex; flex-direction: column; justify-content: flex-end; }
+        .brand { position: absolute; top: 20px; left: 20px; right: 20px; display: flex; justify-content: space-between; font-family: var(--num); font-size: 1rem; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+        .brand b { color: var(--text); }
+        .debug { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 16px; }
+        .debug[hidden] { display: none; }
+        .debug a { padding: 5px 8px; border: 1px solid var(--line); border-radius: 8px; color: var(--muted); background: rgb(17 26 34 / .85); font-size: .72rem; text-decoration: none; }
+        .debug a[aria-current="true"] { color: var(--night); background: var(--air); }
+        .pill { display: inline-block; margin: 0 6px 12px 0; padding: 6px 10px; border: 1px solid rgb(255 138 61 / .35); border-radius: 999px; color: #FFD9B8; background: rgb(255 138 61 / .14); font-size: .76rem; font-weight: 700; }
 
-        .top {
-            padding: 24px 18px 20px;
-            color: #fff;
-            background: linear-gradient(135deg, #0d625b, #238e7e 55%, #69a95f);
-        }
+        .verdict { margin: 0; font-size: clamp(2rem, 9vw, 3rem); font-weight: 800; line-height: 1.14; letter-spacing: -.02em; }
+        .verdict-sub { margin: 12px 0 0; color: var(--soft); font-size: 1rem; line-height: 1.6; }
+        .stats { display: grid; grid-template-columns: 1.15fr 1fr 1fr; gap: 1px; margin-top: 20px; overflow: hidden; border: 1px solid var(--line); border-radius: 16px; background: var(--line); }
+        .stat { min-width: 0; padding: 12px 12px 14px; background: rgb(17 26 34 / .78); backdrop-filter: blur(10px); }
+        .stat small { display: block; color: var(--muted); font-size: .74rem; font-weight: 600; }
+        .stat strong { display: block; margin-top: 6px; font-size: 1.02rem; font-weight: 700; }
+        .pm { display: flex; align-items: baseline; gap: 5px; margin-top: 2px; }
+        .pm b { font-family: var(--num); font-size: 3.1rem; font-weight: 800; line-height: .95; }
+        .pm span { color: var(--muted); font-size: .74rem; }
+        .grade { display: inline-block; margin-top: 4px; padding: 2px 9px; border-radius: 999px; color: var(--night); background: #3A4750; font-size: .76rem; font-weight: 800; }
+        .grade.good { background: var(--good); } .grade.fair { background: var(--fair); } .grade.bad { background: var(--bad); }
+        .grade.worst { color: #fff; background: var(--worst); } .grade.none { color: var(--text); }
+        .on { color: var(--sodium); }
+        .meta { margin: 14px 0 0; color: var(--muted); font-size: .8rem; line-height: 1.65; }
 
-        .eyebrow, .label { margin: 0 0 6px; font-size: .8rem; font-weight: 750; }
-        .eyebrow { opacity: .88; }
-        .label { color: var(--muted); }
-        h1 { margin: 0; font-size: clamp(1.8rem, 8vw, 3rem); line-height: 1.08; }
+        main { display: grid; gap: 14px; max-width: 560px; margin: 0 auto; padding: 6px 16px 36px; }
+        .block { padding: 18px; border: 1px solid var(--line); border-radius: 20px; background: linear-gradient(180deg, rgb(255 255 255 / .04), rgb(255 255 255 / .015)); }
+        .block h2 { margin: 0; font-size: 1.14rem; font-weight: 800; line-height: 1.35; }
+        .head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+        .head span, .lead { color: var(--muted); font-size: .82rem; line-height: 1.55; }
+        .lead { margin: 6px 0 12px; }
 
-        .subtitle {
-            max-width: 38rem;
-            margin: 12px 0 0;
-            font-size: .96rem;
-            line-height: 1.6;
-            opacity: .94;
-        }
+        /* 12시간: 한 화면에 12칸이 다 보이도록 칸 폭을 나눈다 */
+        .strip { display: grid; grid-template-columns: repeat(var(--n, 12), minmax(0, 1fr)); gap: 3px; }
+        .hr { display: grid; grid-template-rows: 20px 92px 22px 18px; justify-items: center; align-items: end; padding: 8px 0 6px; border-radius: 12px; }
+        .hr.rec { background: rgb(124 224 211 / .09); box-shadow: inset 0 0 0 1px rgb(124 224 211 / .3); }
+        .hr .v { font-size: .78rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+        .hr .col { position: relative; width: 8px; height: 92px; overflow: hidden; border-radius: 999px; background: rgb(255 255 255 / .06); }
+        .hr .col i { position: absolute; left: 0; right: 0; bottom: 0; border-radius: inherit; }
+        .hr .dir { width: 16px; height: 16px; color: var(--muted); }
+        .hr .dir.on { color: var(--sodium); }
+        .hr time { color: var(--muted); font-size: .7rem; font-variant-numeric: tabular-nums; }
+        .g-good { background: var(--good); } .g-fair { background: var(--fair); } .g-bad { background: var(--bad); } .g-worst { background: var(--worst); } .g-none { background: #3A4750; }
+        .legend { display: flex; flex-wrap: wrap; gap: 8px 14px; margin-top: 12px; color: var(--muted); font-size: .74rem; }
+        .legend i { display: inline-block; width: 9px; height: 9px; margin-right: 5px; border-radius: 50%; }
+        .legend .ring { background: transparent; box-shadow: inset 0 0 0 1.5px var(--air); border-radius: 3px; }
 
-        .toolbar {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 7px;
-            margin-top: 18px;
-        }
+        .bars { display: grid; gap: 9px; margin: 6px 0 4px; }
+        .bar { display: grid; grid-template-columns: 84px 1fr 40px; align-items: center; gap: 10px; font-size: .84rem; }
+        .bar .track { height: 10px; overflow: hidden; border-radius: 999px; background: rgb(255 255 255 / .06); }
+        .bar .track i { display: block; height: 100%; border-radius: inherit; }
+        .bar b { text-align: right; font-variant-numeric: tabular-nums; }
+        .fine { margin: 12px 0 0; color: var(--muted); font-size: .76rem; line-height: 1.6; }
 
-        .toolbar[hidden] { display: none; }
+        .rose { display: grid; grid-template-columns: 190px 1fr; gap: 16px; align-items: center; }
+        .rose svg { width: 100%; height: auto; }
+        .rose p { margin: 0 0 8px; font-size: .9rem; line-height: 1.6; }
 
-        .toolbar a {
-            padding: 8px 11px;
-            border: 1px solid rgb(255 255 255 / .45);
-            border-radius: 8px;
-            color: #fff;
-            background: rgb(255 255 255 / .13);
-            font-size: .8rem;
-            font-weight: 750;
-            text-decoration: none;
-        }
+        .sources { display: grid; gap: 6px; padding: 0; margin: 10px 0 0; list-style: none; }
+        .sources li { color: var(--muted); font-size: .78rem; line-height: 1.5; }
+        footer { max-width: 560px; margin: 0 auto; padding: 0 20px 40px; color: var(--muted); font-size: .76rem; line-height: 1.7; }
 
-        .toolbar a[aria-current="true"] { color: var(--brand-dark); background: #fff; }
-        .content { display: grid; gap: 12px; padding: 12px; }
-
-        .panel {
-            border: 1px solid var(--line);
-            border-radius: 12px;
-            background: var(--panel);
-            box-shadow: 0 9px 24px rgb(18 54 48 / .07);
-        }
-
-        .notice {
-            padding: 10px 12px;
-            border-radius: 9px;
-            color: #75500e;
-            background: #fff5d9;
-            font-size: .85rem;
-            line-height: 1.5;
-        }
-
-        .summary { display: grid; gap: 14px; padding: 17px; }
-        .summary-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
-        .location { margin: 0; font-size: 1.3rem; font-weight: 800; }
-
-        .badge {
-            min-width: 66px;
-            padding: 8px 10px;
-            border-radius: 8px;
-            color: var(--good);
-            background: #e7f6ed;
-            text-align: center;
-            font-weight: 800;
-        }
-
-        .badge.warn { color: var(--warn); background: #fff0d7; }
-        .badge.bad { color: var(--bad); background: #ffe7e3; }
-
-        .metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-        .metric { min-width: 0; padding: 11px; border: 1px solid #e2ece9; border-radius: 9px; background: #f7fbfa; }
-        .metric strong { display: block; margin-top: 5px; font-size: clamp(1rem, 4vw, 1.35rem); overflow-wrap: anywhere; }
-
-        .recommendations { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-        .recommendation { padding: 12px; border-left: 4px solid var(--brand); border-radius: 8px; background: #ecf7f4; line-height: 1.55; }
-        .recommendation strong { display: block; margin-bottom: 4px; }
-
-        .section { padding: 17px; }
-        .section h2 { margin: 0 0 12px; font-size: 1.05rem; }
-        .hours { display: grid; gap: 9px; }
-        .hour { display: grid; grid-template-columns: 52px 1fr 68px; align-items: center; gap: 10px; min-height: 43px; }
-        .bar-track { height: 12px; overflow: hidden; border-radius: 999px; background: #dce9e7; }
-        .bar { height: 100%; border-radius: inherit; background: #9fb3ae; }
-        .bar.good { background: #3f9d63; }
-        .bar.warn { background: #d9a431; }
-        .bar.bad { background: #d0543f; }
-        .bar.worst { background: #8e2f8f; }
-        .hour small { color: var(--muted); font-weight: 700; }
-        .reason { margin: 0; color: var(--muted); line-height: 1.6; }
-
-        .source-list { display: grid; gap: 8px; padding: 0; margin: 12px 0 0; list-style: none; }
-        .source-list li { padding: 9px; border: 1px solid var(--line); border-radius: 8px; color: var(--muted); font-size: .82rem; }
-
-        .state { display: grid; min-height: 250px; place-items: center; padding: 28px 18px; text-align: center; }
-        .state strong { display: block; margin-bottom: 8px; font-size: 1.2rem; }
-        .state p { max-width: 34rem; margin: 0; color: var(--muted); line-height: 1.6; }
-        .state a { color: var(--brand-dark); font-weight: 750; }
-
-        .spinner {
-            width: 34px;
-            height: 34px;
-            margin: 0 auto 14px;
-            border: 4px solid #d6e4e1;
-            border-top-color: var(--brand);
-            border-radius: 50%;
-            animation: spin .9s linear infinite;
-        }
-
-        @keyframes spin { to { transform: rotate(360deg); } }
-
-        @media (max-width: 520px) {
-            .metrics, .recommendations { grid-template-columns: 1fr; }
-            .hour { grid-template-columns: 48px 1fr 62px; }
+        @media (max-width: 420px) {
+            .stats { grid-template-columns: 1fr 1fr; }
+            .stats .stat:first-child { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+            .rose { grid-template-columns: 1fr; justify-items: center; }
+            .rose svg { max-width: 220px; }
         }
     </style>
 </head>
 <body>
-    <main>
-        <header class="top">
-            <p class="eyebrow">Wave 바람길 · 순천</p>
-            <h1>지금 환기해도 될까요?</h1>
-            <p class="subtitle">바람이 어디서 불어오는지와 12시간 미세먼지 예측으로 환기·외출 시간을 알려 드려요.</p>
-            <nav class="toolbar" aria-label="개발 상태 확인">
-                <a href="/?debug=1" data-state="live">실제 API</a>
-                <a href="/?debug=1&amp;state=normal" data-state="normal">명세 예시</a>
-                <a href="/?debug=1&amp;state=fallback" data-state="fallback">폴백 예시</a>
-                <a href="/?debug=1&amp;state=empty" data-state="empty">빈 데이터</a>
-                <a href="/?debug=1&amp;state=error" data-state="error">오류</a>
-            </nav>
-        </header>
-        <section class="content" id="app" aria-live="polite">
-            <div class="panel state"><div><div class="spinner" aria-hidden="true"></div><strong>예보를 불러오는 중</strong><p>최신 바람길 정보를 확인하고 있습니다.</p></div></div>
-        </section>
-    </main>
+    <header class="hero">
+        <canvas id="field" aria-hidden="true"></canvas>
+        <div id="places" aria-hidden="true"></div>
+        <div class="hero-inner" id="now">
+            <div class="brand"><span><b>Wave</b> 바람길</span><span>순천 · 연향동</span></div>
+            <div id="hero-body" aria-live="polite">
+                <h1 class="verdict">지금 환기해도 될까요?</h1>
+                <p class="verdict-sub">바람이 어디서 불어오는지와 AI 미세먼지 예측을 불러오는 중이에요.</p>
+            </div>
+        </div>
+    </header>
+    <main id="app"></main>
+    <footer>
+        데이터: 기상청·한국환경공단 에어코리아(공공데이터포털), Open-Meteo(CC BY 4.0). 첫 화면 지도는 순천 시청 기준 실제 방위·거리로 그린 개략도입니다.<br>
+        예측은 참고용이며 특정 시설과 대기질 사이의 인과관계를 뜻하지 않습니다.<br>
+        <a href="https://github.com/Willow33426/wave-windpath">GitHub · 팀 Wave</a>
+        <nav class="debug" aria-label="개발 상태 확인" hidden>
+            <a href="/?debug=1" data-state="live">실제 API</a>
+            <a href="/?debug=1&amp;state=normal" data-state="normal">산단풍 예시</a>
+            <a href="/?debug=1&amp;state=fallback" data-state="fallback">폴백 예시</a>
+            <a href="/?debug=1&amp;state=empty" data-state="empty">빈 데이터</a>
+            <a href="/?debug=1&amp;state=error" data-state="error">오류</a>
+        </nav>
+    </footer>
     <script>
-        const root = document.querySelector("#app");
+        const $ = (selector) => document.querySelector(selector);
         const params = new URLSearchParams(window.location.search);
         const debug = params.get("debug") === "1";
         const state = debug ? (params.get("state") || "live") : "live";
-        document.querySelector(".toolbar").hidden = !debug;
-
-        document.querySelectorAll("[data-state]").forEach((link) => {
+        const nav = $(".debug");
+        nav.hidden = !debug;
+        nav.querySelectorAll("[data-state]").forEach((link) => {
             link.setAttribute("aria-current", link.dataset.state === state ? "true" : "false");
         });
 
-        const escapeText = (value) => {
+        const esc = (value, empty = "정보 없음") => {
             const span = document.createElement("span");
-            span.textContent = value == null || value === "" ? "정보 없음" : String(value);
+            span.textContent = value == null || value === "" ? empty : String(value);
             return span.innerHTML;
         };
+        const seoul = (options) => new Intl.DateTimeFormat("ko-KR", { timeZone: "Asia/Seoul", hourCycle: "h23", ...options });
+        const hourOf = (v) => v ? seoul({ hour: "numeric" }).formatToParts(new Date(v)).find((p) => p.type === "hour")?.value : "–";
+        const fmtHour = (v) => v ? seoul({ hour: "numeric" }).format(new Date(v)) : "–";
+        const fmtWhen = (v) => v ? seoul({ month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }).format(new Date(v)) : "정보 없음";
+        const fmtDay = (v) => v ? seoul({ month: "numeric", day: "numeric" }).format(new Date(v)) : "";
+        const gradeOf = (pm) => pm == null ? "none" : pm <= 15 ? "good" : pm <= 35 ? "fair" : pm <= 75 ? "bad" : "worst";
+        const gradeName = (pm) => pm == null ? "정보 없음" : pm <= 15 ? "좋음" : pm <= 35 ? "보통" : pm <= 75 ? "나쁨" : "매우나쁨";
+        const isOn = (level) => level === "medium" || level === "high";
+        const influenceLabel = (level) => ({ low: "거의 없음", medium: "약하게 있음", high: "있음", unknown: "판단 불가" })[level] || "판단 불가";
+        const num1 = (v) => v == null ? "–" : Number(v).toFixed(1);
+        const num2 = (v) => v == null ? "–" : Number(v).toFixed(2);
 
-        const formatTime = (value) => value ? new Intl.DateTimeFormat("ko-KR", {
-            hour: "2-digit", minute: "2-digit", hour12: false,
-        }).format(new Date(value)) : "--:--";
+        // 지도: 순천 시청 기준 실제 방위·거리(docs/api.md와 같은 값)
+        const HOME = { x: 0.28, y: 0.19 };
+        const PLANTS = [{ name: "광양제철소", bearing: 101, km: 24 }, { name: "여수국가산단", bearing: 117, km: 23 }];
+        const hero = $(".hero");
+        const canvas = $("#field");
+        let geo = null;
 
-        const formatUpdated = (value) => value ? new Intl.DateTimeFormat("ko-KR", {
-            month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false,
-        }).format(new Date(value)) : "정보 없음";
+        // 바람장: 입자가 '불어 가는 쪽'으로 흐른다. 산단 쪽 바람이면 입자 일부가 산단에서 출발해 주황으로 순천에 들어온다.
+        const Field = (() => {
+            const ctx = canvas.getContext("2d");
+            const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+            let W = 0, H = 0, raf = 0, parts = [];
+            let cfg = { dir: null, speed: 0, industrial: false };
+            const spawn = (p) => {
+                if (cfg.industrial && geo && Math.random() < 0.35) {
+                    const plant = geo.plants[Math.random() < 0.5 ? 0 : 1];
+                    p.x = plant.x + (Math.random() - 0.5) * 34;
+                    p.y = plant.y + (Math.random() - 0.5) * 34;
+                } else {
+                    p.x = Math.random() * W;
+                    p.y = Math.random() * H;
+                }
+                p.age = 0;
+                p.life = 50 + Math.random() * 110;
+                return p;
+            };
+            const step = () => {
+                ctx.fillStyle = "rgba(11,17,23,0.09)";
+                ctx.fillRect(0, 0, W, H);
+                const calm = cfg.dir == null;
+                const to = ((calm ? 250 : cfg.dir) + 180) * Math.PI / 180;
+                const v = calm ? 0.25 : 0.55 + Math.min(cfg.speed || 0, 9) * 0.32;
+                const vx = Math.sin(to) * v;
+                const vy = -Math.cos(to) * v;
+                ctx.lineWidth = 1.3;
+                ctx.lineCap = "round";
+                ctx.strokeStyle = cfg.industrial ? "rgba(255,138,61,0.62)" : "rgba(124,224,211,0.5)";
+                ctx.beginPath();
+                for (const p of parts) {
+                    const bend = Math.sin(p.y * 0.018 + p.x * 0.011 + p.age * 0.03) * 0.35;
+                    const nx = p.x + vx - vy * bend;
+                    const ny = p.y + vy + vx * bend;
+                    ctx.moveTo(p.x, p.y);
+                    ctx.lineTo(nx, ny);
+                    p.x = nx;
+                    p.y = ny;
+                    p.age += 1;
+                    if (p.age > p.life || nx < -8 || nx > W + 8 || ny < -8 || ny > H + 8) spawn(p);
+                }
+                ctx.stroke();
+            };
+            const loop = () => { step(); raf = requestAnimationFrame(loop); };
+            const resize = (w, h) => {
+                const dpr = Math.min(window.devicePixelRatio || 1, 2);
+                W = w; H = h;
+                canvas.width = Math.round(w * dpr);
+                canvas.height = Math.round(h * dpr);
+                ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+                ctx.fillStyle = "#0B1117";
+                ctx.fillRect(0, 0, W, H);
+            };
+            const run = (next) => {
+                cfg = { ...cfg, ...next };
+                if (!parts.length) parts = Array.from({ length: W < 520 ? 280 : 520 }, () => spawn({}));
+                if (reduce) { for (let i = 0; i < 160; i += 1) step(); return; }
+                if (!raf) loop();
+            };
+            document.addEventListener("visibilitychange", () => {
+                if (document.hidden) { cancelAnimationFrame(raf); raf = 0; }
+                else if (!reduce && parts.length && !raf) loop();
+            });
+            return { resize, run, size: () => ({ w: W, h: H }) };
+        })();
 
-        const qualityClass = (quality) => {
-            if (quality === "나쁨" || quality === "매우나쁨") return "bad";
-            if (quality === "보통" || !quality) return "warn";
-            return "";
+        // 지도는 제목·수치 위에 남는 공간에 맞춘다(문구가 길거나 예시 배지가 붙어도 겹치지 않게).
+        const layout = () => {
+            const w = hero.clientWidth, h = hero.clientHeight;
+            const heroTop = hero.getBoundingClientRect().top;
+            const contentTop = $("#hero-body").getBoundingClientRect().top - heroTop;
+            const home = { x: w * HOME.x, y: 84 };
+            // 여수국가산단(117°, 23km)이 가장 아래(0.45×23km)에 온다. 라벨 높이 24px를 더해 제목 위 16px에서 멈춘다.
+            const room = contentTop - 16 - home.y - 24;
+            const scale = Math.max(3, Math.min(room / 10.4, (w - 44 - home.x) / 23.5, 12));
+            const plants = PLANTS.map((p) => {
+                const a = p.bearing * Math.PI / 180;
+                return { ...p, x: home.x + Math.sin(a) * p.km * scale, y: home.y - Math.cos(a) * p.km * scale };
+            });
+            geo = { home, plants };
+            $("#places").innerHTML = `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">${plants.map((p) => `<line x1="${p.x.toFixed(1)}" y1="${p.y.toFixed(1)}" x2="${home.x.toFixed(1)}" y2="${home.y.toFixed(1)}"/>`).join("")}</svg>`
+                + `<span class="place home" style="left:${home.x}px;top:${home.y}px">순천</span>`
+                + plants.map((p) => `<span class="place plant" style="left:${p.x}px;top:${p.y}px">${p.name}</span>`).join("");
+            if (Field.size().w !== w || Field.size().h !== h) Field.resize(w, h);
+        };
+        layout();
+        let resizeTimer = 0;
+        window.addEventListener("resize", () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(layout, 150); });
+        Field.run({});
+
+        // 시간별 화살표는 바람이 불어 가는 쪽을 가리킨다(불어오는 방향 + 180°).
+        const arrow = (dir, on) => dir == null ? '<span class="dir"></span>'
+            : `<svg class="dir ${on ? "on" : ""}" viewBox="0 0 16 16" aria-hidden="true" style="transform:rotate(${(dir + 180) % 360}deg)"><path d="M8 1.5 L12.2 8.6 H9.1 V14.5 H6.9 V8.6 H3.8 Z" fill="currentColor"/></svg>`;
+
+        const renderHero = (data, isDemo) => {
+            const current = data.current || {};
+            const reco = data.recommendation || {};
+            const influence = current.industrial_influence || {};
+            const on = isOn(influence.level);
+            hero.classList.toggle("industrial", on);
+            Field.run({ dir: current.wind_direction ?? null, speed: current.wind_speed_mps ?? 0, industrial: on });
+            const wind = current.wind_direction_label ? `${current.wind_direction_label}풍 ${current.wind_speed_mps ?? "–"}m/s` : "정보 없음";
+            $("#hero-body").innerHTML = `
+                ${isDemo ? '<span class="pill">산단 쪽 바람 예시 화면 · 실제 관측 아님</span>' : ""}
+                ${data.is_fallback ? '<span class="pill">최신 자료 지연 · 대체 자료 사용 중</span>' : ""}
+                <h1 class="verdict">${esc(reco.summary, "예보를 확인하세요")}</h1>
+                <p class="verdict-sub">${esc(reco.ventilation?.text, "")}</p>
+                <div class="stats">
+                    <div class="stat"><div><small>초미세먼지 PM2.5</small><div class="pm"><b>${current.pm25 == null ? "–" : esc(Math.round(current.pm25))}</b><span>㎍/㎥</span></div></div><span class="grade ${gradeOf(current.pm25)}">${esc(gradeName(current.pm25))}</span></div>
+                    <div class="stat"><small>지금 바람</small><strong>${esc(wind)}</strong></div>
+                    <div class="stat"><small>산단 쪽 바람</small><strong class="${on ? "on" : ""}">${esc(influenceLabel(influence.level))}</strong></div>
+                </div>
+                <p class="meta">외출 · ${esc(reco.outdoor?.text)}<br>관측 ${esc(fmtWhen(data.observed_at))} 기준${influence.note ? ` · ${esc(influence.note)}` : ""}</p>`;
         };
 
-        // 영향의 크기가 아니라 바람이 산단 방향에서 오는지만 표현한다.
-        const influenceLabel = (level) => ({ low: "거의 없음", medium: "약하게 있음", high: "있음", unknown: "판단 불가" })[level] || "판단 불가";
+        const renderTimeline = (data) => {
+            const forecast = Array.isArray(data.forecast) ? data.forecast : [];
+            if (!forecast.length) return "";
+            const windows = (data.recommendation?.ventilation?.windows || []).map((w) => [new Date(w.start), new Date(w.end)]);
+            const inWindow = (t) => windows.some(([s, e]) => t >= s && t < e);
+            const cols = forecast.map((item) => {
+                const t = new Date(item.forecast_time);
+                const pm = item.pm25_predicted;
+                const on = isOn(item.industrial_influence?.level);
+                const height = pm == null ? 0 : Math.min(100, Math.max(6, Math.round(pm / 75 * 100)));
+                const label = `${fmtHour(item.forecast_time)} 초미세먼지 ${pm == null ? "정보 없음" : Math.round(pm)}${item.wind_direction_label ? `, ${item.wind_direction_label}풍` : ""}${on ? ", 산단 쪽 바람" : ""}${inWindow(t) ? ", 환기 추천" : ""}`;
+                return `<div class="hr ${inWindow(t) ? "rec" : ""}" role="listitem" aria-label="${esc(label)}">
+                    <span class="v">${pm == null ? "–" : esc(Math.round(pm))}</span>
+                    <span class="col"><i class="g-${gradeOf(pm)}" style="height:${height}%"></i></span>
+                    ${arrow(item.wind_direction, on)}
+                    <time>${esc(hourOf(item.forecast_time))}</time></div>`;
+            }).join("");
+            return `<section class="block" id="timeline">
+                <div class="head"><h2>앞으로 ${forecast.length}시간</h2><span>위 ㎍/㎥ · 아래 시각</span></div>
+                <div class="strip" role="list" style="--n:${forecast.length}">${cols}</div>
+                <div class="legend"><span><i class="g-good"></i>좋음 ~15</span><span><i class="g-fair"></i>보통 ~35</span><span><i class="g-bad"></i>나쁨 ~75</span><span><i style="background:var(--sodium)"></i>주황 화살표 = 산단 쪽 바람</span><span><i class="ring"></i>환기 추천</span></div>
+            </section>`;
+        };
 
-        // 막대는 예보끼리의 상대 비교가 아니라 PM2.5 등급 경계(15·35·75㎍/㎥) 기준 절대 눈금이다.
-        const gradeClass = (value) => value <= 15 ? "good" : value <= 35 ? "warn" : value <= 75 ? "bad" : "worst";
+        const renderModel = (data) => {
+            const m = data.model || {};
+            if (!m.name || !m.name.startsWith("ml-") || m.mae_validation == null) {
+                return `<section class="block" id="model"><h2>예측 방식</h2><p class="lead">지금은 AI 입력 자료가 부족해 최근 관측값을 기준으로 예측하고 있어요. 자료가 쌓이면 AI 예측으로 자동 전환됩니다.</p></section>`;
+            }
+            const max = Math.max(m.mae_validation, m.mae_persistence || 0);
+            const bar = (label, v, color) => `<div class="bar"><span>${label}</span><span class="track"><i style="width:${Math.round(v / max * 100)}%;background:${color}"></i></span><b>${esc(num2(v))}</b></div>`;
+            return `<section class="block" id="model">
+                <h2>AI 예측이 ${esc(m.improvement_pct)}% 더 정확해요</h2>
+                <p class="lead">지금 값이 그대로 간다고 볼 때와 평균 오차를 비교했어요. 짧을수록 정확합니다.</p>
+                <div class="bars">${bar("AI 예측", m.mae_validation, "var(--air)")}${bar("지금 값 유지", m.mae_persistence, "#4A5A64")}</div>
+                <p class="fine">평균 절대 오차(㎍/㎥). 학습에 쓰지 않은 ${esc(fmtDay(m.validation_from))}~${esc(fmtDay(m.validation_to))} 실측으로 검증했습니다. 순천·광양·여수 측정소 PM2.5와 순천 바람·기온·습도로 1~12시간 뒤를 따로 학습한 회귀 모델입니다.</p>
+            </section>`;
+        };
 
-        const modelLabel = (name) => {
-            if (!name) return "정보 없음";
-            if (name.startsWith("ml-")) return "AI 예측 모델";
-            return ({ "baseline-persistence": "최근 관측값 유지(기준선)", "baseline-wind-rule": "풍향 보정 규칙(기준선)" })[name] || name;
+        // 바람장미: 8방위마다 그 방향 바람일 때의 평균 농도를 부채꼴 길이로 그린다. 주황은 산단 방향.
+        const renderRose = (data) => {
+            const ev = data.evidence;
+            if (!ev || !Array.isArray(ev.sectors) || !ev.sectors.length) return "";
+            const order = ["북", "북동", "동", "남동", "남", "남서", "서", "북서"];
+            const max = Math.max(...ev.sectors.map((s) => s.pm25_mean || 0), 1);
+            const c = 110, r0 = 16, r1 = 90;
+            const pt = (deg, r) => { const a = deg * Math.PI / 180; return `${(c + Math.sin(a) * r).toFixed(1)},${(c - Math.cos(a) * r).toFixed(1)}`; };
+            const wedges = order.map((name, i) => {
+                const s = ev.sectors.find((x) => x.name === name) || {};
+                const r = r0 + (r1 - r0) * ((s.pm25_mean || 0) / max);
+                const a0 = i * 45 - 19, a1 = i * 45 + 19;
+                const fill = name === "동" || name === "남동" ? "var(--sodium)" : "#3C4B55";
+                return `<path d="M${pt(a0, r0)} L${pt(a0, r)} A${r.toFixed(1)},${r.toFixed(1)} 0 0 1 ${pt(a1, r)} L${pt(a1, r0)} A${r0},${r0} 0 0 0 ${pt(a0, r0)} Z" fill="${fill}"><title>${name}풍 ${num1(s.pm25_mean)}㎍/㎥</title></path>`;
+            }).join("");
+            const rings = [0.5, 1].map((k) => `<circle cx="${c}" cy="${c}" r="${(r0 + (r1 - r0) * k).toFixed(1)}" fill="none" stroke="rgb(255 255 255 / .08)"/>`).join("");
+            const labels = [["북", 0], ["동", 90], ["남", 180], ["서", 270]].map(([t, d]) => {
+                const [x, y] = pt(d, 103).split(",");
+                return `<text x="${x}" y="${(Number(y) + 4).toFixed(1)}" text-anchor="middle" font-size="11" fill="#93A4AE">${t}</text>`;
+            }).join("");
+            const top = ev.sectors.reduce((a, b) => (b.pm25_mean || 0) > (a.pm25_mean || 0) ? b : a);
+            return `<section class="block" id="evidence">
+                <div class="head"><h2>바람 방향별 초미세먼지</h2><span>${esc(fmtDay(ev.period_from))}~${esc(fmtDay(ev.period_to))} 실측</span></div>
+                <div class="rose">
+                    <svg viewBox="0 0 220 220" role="img" aria-label="바람 방향별 순천 초미세먼지 평균을 그린 바람장미">${rings}${wedges}${labels}<circle cx="${c}" cy="${c}" r="4" fill="var(--air)"/></svg>
+                    <div>
+                        <p>산단 방향(동~동남동) 바람일 때 평균 <b class="on">${esc(num1(ev.industrial?.pm25_mean))}</b>, 그 밖의 바람일 때 <b>${esc(num1(ev.other?.pm25_mean))}</b>㎍/㎥였어요.</p>
+                        <p>가장 높았던 건 ${esc(top.name)}풍(${esc(num1(top.pm25_mean))})이라, 바람 방향 전체를 함께 봐야 합니다.</p>
+                    </div>
+                </div>
+                <p class="fine">순천 연향동, 풍속 1m/s 이상인 시간의 평균. ${esc(ev.note, "")}</p>
+            </section>`;
+        };
+
+        const renderSources = (data) => {
+            const items = (data.data_sources || []).map((s) => {
+                const when = s.observed_at ? ` · 관측 ${esc(fmtWhen(s.observed_at))}` : "";
+                const note = s.note ? ` · ${esc(s.note)}` : "";
+                return `<li><b>${esc(s.provider)}</b> ${esc(s.name)}${when}${note}</li>`;
+            }).join("");
+            return `<section class="block" id="sources"><h2>자료와 한계</h2><p class="lead">${esc(data.reason, "")}</p><ul class="sources">${items}</ul></section>`;
         };
 
         const renderState = (title, message, extra = "") => {
-            root.innerHTML = `<div class="panel state"><div><strong>${escapeText(title)}</strong><p>${escapeText(message)}</p>${extra}</div></div>`;
+            hero.classList.remove("industrial");
+            Field.run({ dir: null, speed: 0, industrial: false });
+            $("#hero-body").innerHTML = `<h1 class="verdict">${esc(title)}</h1><p class="verdict-sub">${esc(message)}</p>${extra}`;
+            $("#app").innerHTML = "";
+            layout();
         };
 
         const renderForecast = (data, isDemo = false) => {
-            const current = data.current;
             const forecast = Array.isArray(data.forecast) ? data.forecast : [];
-            if (!current && forecast.length === 0) {
-                renderState("표시할 예보가 없습니다", "관측 또는 예측 데이터가 들어오면 자동으로 표시됩니다.");
+            if (!data.current && forecast.length === 0) {
+                renderState("표시할 예보가 없어요", "관측 자료가 들어오면 자동으로 표시됩니다.");
                 return;
             }
-
-            const hours = forecast.map((item) => {
-                const pm = item.pm25_predicted;
-                const value = pm == null ? "없음" : `${pm}㎍/㎥`;
-                const width = pm == null ? 0 : Math.min(100, Math.max(4, Math.round((pm / 75) * 100)));
-                return `<div class="hour"><small>${formatTime(item.forecast_time)}</small><div class="bar-track" aria-label="PM2.5 ${escapeText(value)}"><div class="bar ${pm == null ? "" : gradeClass(pm)}" style="width:${width}%"></div></div><small>${escapeText(value)}</small></div>`;
-            }).join("");
-
-            // 비어 있는 부가 정보에 '정보 없음'이 붙지 않도록 값이 있을 때만 이어 붙인다.
-            const sourceItems = (data.data_sources || []).map((source) => {
-                const when = source.observed_at ? ` · 관측 ${escapeText(formatUpdated(source.observed_at))}` : "";
-                const note = source.note ? ` · ${escapeText(source.note)}` : "";
-                return `<li><strong>${escapeText(source.provider)}</strong> ${escapeText(source.name)}${when}${note}</li>`;
-            }).join("");
-            const station = data.location?.air_station ? ` · ${escapeText(data.location.air_station)} 측정소` : "";
-            const mae = data.model?.mae_validation == null ? "" : ` · 검증 평균 오차 ${escapeText(data.model.mae_validation)}㎍/㎥`;
-
-            const influence = current?.industrial_influence || {};
-            const ventilation = data.recommendation?.ventilation || {};
-            const outdoor = data.recommendation?.outdoor || {};
-            const wind = current?.wind_direction_label && current?.wind_speed_mps != null
-                ? `${current.wind_direction_label} ${current.wind_speed_mps}m/s`
-                : "정보 없음";
-
-            root.innerHTML = `
-                ${isDemo ? '<div class="notice">산단 쪽 바람이 불 때의 화면 예시입니다. 실제 관측값이 아닙니다.</div>' : ""}
-                ${data.is_fallback ? '<div class="notice">최신 자료를 받지 못해 이전 자료 또는 대체 자료를 사용했습니다.</div>' : ""}
-                <article class="panel summary">
-                    <div class="summary-head"><div><p class="label">측정 지역${station}</p><p class="location">${escapeText(data.location?.name)}</p></div><div class="badge ${qualityClass(current?.air_quality)}">${escapeText(current?.air_quality)}</div></div>
-                    <div class="metrics">
-                        <div class="metric"><span class="label">현재 PM2.5</span><strong>${current?.pm25 == null ? "정보 없음" : `${escapeText(current.pm25)}㎍/㎥`}</strong></div>
-                        <div class="metric"><span class="label">풍향·풍속</span><strong>${escapeText(wind)}</strong></div>
-                        <div class="metric"><span class="label">산단 쪽에서 오는 바람</span><strong>${escapeText(influenceLabel(influence.level))}</strong></div>
-                    </div>
-                    <div class="recommendations"><div class="recommendation"><strong>환기</strong>${escapeText(ventilation.text)}</div><div class="recommendation"><strong>외출</strong>${escapeText(outdoor.text)}</div></div>
-                    <p class="reason">관측 ${formatUpdated(data.observed_at)} 기준 · ${escapeText(influence.note)}</p>
-                </article>
-                <article class="panel section"><h2>향후 ${forecast.length}시간 PM2.5 예측</h2><div class="hours">${hours || '<p class="reason">예측 데이터가 없습니다.</p>'}</div></article>
-                <article class="panel section"><h2>판단 근거와 한계</h2><p class="reason">${escapeText(data.reason)}</p><p class="reason">예측 방식: ${escapeText(modelLabel(data.model?.name))}${mae}</p><ul class="source-list">${sourceItems}</ul></article>`;
+            renderHero(data, isDemo);
+            $("#app").innerHTML = [renderTimeline(data), renderModel(data), renderRose(data), renderSources(data)].join("");
+            layout();
         };
 
-        const now = new Date();
-        now.setMinutes(0, 0, 0);
-        const isoAt = (hours) => new Date(now.getTime() + hours * 3600000).toISOString();
-        const demoPayload = (fallback = false) => ({
-            location: { id: "suncheon", name: "순천시" },
-            updated_at: isoAt(0), observed_at: isoAt(fallback ? -6 : 0), is_fallback: fallback,
-            data_sources: [{ name: "API 명세 mock", provider: "개발 예시", observed_at: isoAt(fallback ? -6 : 0), note: fallback ? "폴백 화면 확인용 예시입니다." : "실제 관측값이 아닙니다." }],
-            current: { pm25: fallback ? 19 : 23, air_quality: "보통", wind_direction_label: fallback ? null : "동남동", wind_speed_mps: fallback ? null : 3.4, industrial_influence: { level: fallback ? "unknown" : "medium", note: fallback ? "풍향 자료가 없어 판단하지 못했습니다." : "동남동풍이 이어지는 참고 상황입니다." } },
-            forecast: Array.from({ length: 12 }, (_, index) => ({ forecast_time: isoAt(index + 1), pm25_predicted: fallback ? 19 : [26,29,31,30,27,24,21,19,18,17,16,16][index], confidence: fallback ? null : Math.max(.48, .78 - index * .03), is_fallback: fallback })),
-            recommendation: { ventilation: { text: fallback ? "최신 자료가 복구되면 다시 확인하세요." : "농도가 낮아지는 밤 시간대에 짧게 환기하세요." }, outdoor: { text: fallback ? "현재 정보는 참고용으로만 확인하세요." : "민감군은 늦은 시간 활동을 검토하세요." }, summary: "개발 예시" },
-            reason: fallback ? "자료 지연 상태를 확인하기 위한 명세 예시입니다." : "풍향과 PM2.5 변화를 함께 표현하는 명세 예시입니다.",
-            model: { name: fallback ? "baseline-persistence" : "baseline-wind-rule", mae_validation: null },
-        });
+        // ?debug=1 전용 예시. 실제 관측값이 아니며 화면에도 그렇게 표시한다.
+        const base = new Date();
+        base.setMinutes(0, 0, 0);
+        const at = (h) => new Date(base.getTime() + h * 3600000).toISOString();
+        const demoPayload = (fallback = false) => {
+            const pms = [24, 27, 30, 31, 29, 26, 22, 19, 16, 14, 13, 13];
+            const dirs = [112, 115, 110, 104, 98, 90, 70, 50, 30, 20, 350, 340];
+            const labels = ["동남동", "동남동", "동남동", "동", "동", "동", "동북동", "북동", "북북동", "북북동", "북", "북북서"];
+            return {
+                location: { id: "suncheon", name: "순천시", air_station: "순천 연향동" },
+                updated_at: at(0), observed_at: at(fallback ? -6 : 0), is_fallback: fallback,
+                data_sources: [{ name: "화면 예시", provider: "개발 예시", observed_at: at(fallback ? -6 : 0), note: "실제 관측값이 아닙니다." }],
+                current: fallback
+                    ? { pm25: 19, wind_direction: null, wind_direction_label: null, wind_speed_mps: null, industrial_influence: { level: "unknown", note: "풍향 자료가 없어 판단하지 못했습니다." } }
+                    : { pm25: 23, wind_direction: 112, wind_direction_label: "동남동", wind_speed_mps: 3.4, industrial_influence: { level: "high", note: "산단 방향에서 바람이 불어옵니다. 오염 원인을 뜻하지는 않습니다." } },
+                forecast: pms.map((pm, i) => ({
+                    forecast_time: at(i + 1), pm25_predicted: fallback ? 19 : pm, model: fallback ? "baseline-persistence" : "ml-ridge",
+                    wind_direction: fallback ? null : dirs[i], wind_direction_label: fallback ? null : labels[i],
+                    industrial_influence: { level: fallback ? "unknown" : (dirs[i] >= 76 && dirs[i] <= 142 ? (i < 3 ? "high" : "medium") : "low") },
+                })),
+                recommendation: fallback
+                    ? { ventilation: { status: "caution", windows: [], text: "최신 자료가 복구되면 다시 확인하세요." }, outdoor: { text: "현재 정보는 참고용으로만 확인하세요." }, summary: "자료를 기다리는 중이에요" }
+                    : { ventilation: { status: "caution", windows: [{ start: at(9), end: at(13) }], text: "산단 방향(동~동남동)에서 바람이 불고 있어요. 바람이 북쪽으로 바뀌는 밤에 환기하세요." }, outdoor: { text: "야외 활동하기 무난해요." }, summary: "산단 쪽 바람, 짧게만 환기하세요" },
+                reason: "화면 확인용 예시입니다. 특정 시설과의 인과관계를 뜻하지 않습니다.",
+                model: fallback ? { name: "baseline-persistence" } : { name: "ml-ridge", mae_validation: 3.39, mae_persistence: 3.78, improvement_pct: 10.5, validation_from: "2026-08-25T00:00:00+09:00", validation_to: "2026-09-20T23:00:00+09:00" },
+                evidence: fallback ? null : { period_from: "2026-06-23", period_to: "2026-09-20", sectors: [["북", 14.6], ["북동", 10.8], ["동", 11.8], ["남동", 12.2], ["남", 11.4], ["남서", 8.2], ["서", 9.6], ["북서", 10.2]].map(([name, v]) => ({ name, pm25_mean: v })), industrial: { pm25_mean: 12.0 }, other: { pm25_mean: 10.9 }, note: "여름철(6~9월) 관측의 단순 평균 비교입니다. 인과 관계를 뜻하지 않습니다." },
+            };
+        };
 
         if (state === "normal") renderForecast(demoPayload(false), true);
         else if (state === "fallback") renderForecast(demoPayload(true), true);
-        else if (state === "empty") renderState("표시할 예보가 없습니다", "관측 또는 예측 데이터가 들어오면 자동으로 표시됩니다.");
+        else if (state === "empty") renderState("표시할 예보가 없어요", "관측 자료가 들어오면 자동으로 표시됩니다.");
         else if (state === "error") renderState("예보를 불러오지 못했어요", "잠시 후 새로고침해 주세요.");
         else {
             fetch("/api/citizen/forecast?location=suncheon&hours=12")
@@ -299,7 +440,7 @@
                 .catch((error) => renderState(
                     "예보를 불러오지 못했어요",
                     "잠시 후 새로고침해 주세요.",
-                    debug ? `<p style="margin-top:12px">${escapeText(error.message)} · <a href="/?debug=1&amp;state=normal">예시 화면 보기</a></p>` : "",
+                    debug ? `<p class="meta">${esc(error.message)} · <a href="/?debug=1&amp;state=normal">예시 화면 보기</a></p>` : "",
                 ));
         }
     </script>

@@ -20,6 +20,7 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import FileResponse
 
 from app import db
+from app.cache import ResponseCache
 from app.collector import META_LAST_COLLECTED, META_LAST_FALLBACK
 from app.citizen import build_citizen_forecast
 from app.config import load_settings
@@ -28,6 +29,8 @@ from app.sources.parse import KST
 
 VERSION = "0.1.0"
 STALE_AFTER = timedelta(hours=2)
+# 수집(30분 주기)이 없으면 결과가 거의 같으므로 1분 동안 재사용한다. 사용자가 몰려도 계산은 분당 한 번.
+citizen_cache = ResponseCache(ttl_sec=60)
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
@@ -129,13 +132,20 @@ async def citizen_forecast(
     hours: int = Query(12),
 ) -> dict:
     """시민 화면에 필요한 현재 상태·12시간 예측·권고를 한 번에 반환한다."""
+    key = (location, hours)
+    version = db.get_meta(app.state.conn, META_LAST_COLLECTED)
+    cached = citizen_cache.get(key, version)
+    if cached is not None:
+        return cached
     try:
-        return build_citizen_forecast(app.state.conn, settings, location, hours)
+        result = build_citizen_forecast(app.state.conn, settings, location, hours)
     except ValueError as exc:
         field = "location" if location != "suncheon" else "hours"
         raise HTTPException(status_code=400, detail={
             "error": {"code": "INVALID_PARAMETER", "message": str(exc), "field": field}
         }) from exc
+    citizen_cache.put(key, version, result)
+    return result
 
 
 if __name__ == "__main__":
