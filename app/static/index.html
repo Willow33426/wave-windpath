@@ -75,7 +75,7 @@
         .legend { display: flex; flex-wrap: wrap; gap: 10px; margin: 0 0 10px; color: var(--muted); font-size: .76rem; }
         .legend i { display: inline-block; width: 10px; height: 10px; margin-right: 4px; border-radius: 3px; vertical-align: -1px; }
         .hours { display: grid; gap: 2px; }
-        .hour { display: grid; grid-template-columns: 38px 1fr 48px 72px; align-items: center; gap: 8px; min-height: 36px; padding: 0 6px; border-radius: 8px; }
+        .hour { display: grid; grid-template-columns: 38px minmax(48px, 1fr) 30px auto; align-items: center; gap: 8px; min-height: 36px; padding: 0 6px; border-radius: 8px; }
         .hour.rec { background: #e7f5ee; }
         .hour time { color: var(--muted); font-size: .84rem; font-weight: 750; }
         .track { height: 10px; overflow: hidden; border-radius: 999px; background: #e3ecea; }
@@ -311,8 +311,6 @@
                 data.is_fallback ? '<div class="notice">최신 자료를 받지 못해 이전 자료 또는 대체 자료를 쓰고 있습니다.</div>' : "",
                 verdictCard(data), windCard(data), timelineCard(data), modelCard(data), evidenceCard(data), sourceCard(data),
             ].join("");
-            // 공유 링크(#timeline 등)로 들어오면 그려진 뒤 해당 카드로 이동한다.
-            if (location.hash) document.querySelector(location.hash)?.scrollIntoView();
         };
 
         // ?debug=1 전용 예시. 실제 관측값이 아니며 화면에도 그렇게 표시한다.
