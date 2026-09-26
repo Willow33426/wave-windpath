@@ -71,14 +71,25 @@ class BriefingTest(unittest.TestCase):
             with self.subTest(claim=claim):
                 self.assertFalse(_valid_answer(f"{head}{claim}. 예측은 참고용입니다.", template, SAMPLE))
 
-    def test_industrial_wind_advice_can_be_paraphrased_without_cause(self):
+    def test_facility_names_in_llm_output_fall_back(self):
+        # 권고에 '산단 쪽 바람'이 있어도 시설명이 든 LLM 문장은 원인 단정이 될 수 있다(#27 리뷰).
         data = {**SAMPLE, "recommendation": {"summary": "산단 쪽 바람, 짧게만 환기하세요"}}
         reply = ("9월 26일 13시 순천 초미세먼지는 20㎍/㎥로 보통이며 동남동풍입니다. "
                  "14시 예측값은 24㎍/㎥로 보통이니 참고용으로 보세요. {advice}.")
         template = template_briefing(data)
-        self.assertTrue(_valid_answer(reply.format(advice="산단 쪽 바람이라 짧게만 환기하세요"), template, data))
-        self.assertFalse(_valid_answer(reply.format(advice="산단 쪽 바람 때문에 공기가 탁합니다"), template, data))
-        self.assertFalse(_valid_answer(reply.format(advice="산업단지 쪽 바람이라 짧게만 환기하세요"), template, data))
+        for advice in ("산단이 초미세먼지를 만들어내므로 짧게만 환기하세요",
+                       "산단 쪽 바람이라 짧게만 환기하세요"):
+            with self.subTest(advice=advice):
+                self.assertFalse(_valid_answer(reply.format(advice=advice), template, data))
+
+    def test_industrial_advice_keeps_template_without_llm_call(self):
+        data = {**SAMPLE, "recommendation": {"summary": "산단 쪽 바람, 짧게만 환기하세요"}}
+        settings = Settings(llm_provider="gemini", llm_model="test-model", llm_api_key="test-only")
+        with patch("app.briefing._call_llm", new_callable=AsyncMock) as call:
+            result = asyncio.run(build_briefing(data, settings, CallBudget()))
+        self.assertEqual(result["source"], "template")
+        self.assertIn("산단 쪽 바람, 짧게만 환기하세요", result["text"])
+        call.assert_not_awaited()
 
     def test_forecast_hour_is_not_matched_inside_another_hour(self):
         data = {**SAMPLE, "observed_at": "2026-09-26T03:00:00+09:00",

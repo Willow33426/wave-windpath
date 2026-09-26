@@ -16,9 +16,8 @@ from app.config import Settings
 
 MAX_TEXT = 300
 MODEL_NAME = re.compile(r"^[A-Za-z0-9._-]{1,80}$")
-BANNED_WORDS = ("확실", "반드시", "보장", "원인", "배출", "유발", "오염원")
-FACILITY_WORDS = ("산단", "산업단지", "공장", "제철")
-FACILITY_CAUSE_WORDS = ("때문", "탓", "영향")
+BANNED_WORDS = ("확실", "반드시", "보장", "원인", "배출", "유발", "오염원",
+                "산단", "산업단지", "공장", "제철")
 SYSTEM_PROMPT = (
     "당신은 순천시 대기질 안내 문구 편집자입니다. 제공된 문장만 자연스럽게 다듬어 "
     "한국어 2~3문장으로 답하세요. 수치·시각·등급·풍향을 바꾸거나 새로운 사실을 "
@@ -94,14 +93,10 @@ def _valid_answer(answer: str, template: str, data: dict) -> bool:
         return False
     if "참고" not in text or not any(label in text for label in ("PM2.5", "초미세먼지")):
         return False
-    # 부정문 판별은 "좋지 않습니다" 같은 문장으로 쉽게 우회되므로, 원인 표현은
-    # 안전해 보이는 문장이라도 쓰지 않는다. 시설 이름은 템플릿 권고("산단 쪽 바람…")에
-    # 있을 때만, 인과로 읽히는 표현 없이 쓸 수 있다.
+    # 부정문 판별은 "좋지 않습니다" 같은 문장으로 쉽게 우회되고, 시설명이 든 문장은
+    # "산단이 초미세먼지를 만들어내므로"처럼 금칙어 없이도 원인 단정이 된다. 그래서
+    # 원인 표현과 시설명은 안전해 보이는 문장이라도 쓰지 않고 템플릿으로 돌아간다.
     if any(word in text for word in BANNED_WORDS):
-        return False
-    facilities = [word for word in FACILITY_WORDS if word in text]
-    if facilities and (any(word not in template for word in facilities)
-                       or any(word in text for word in FACILITY_CAUSE_WORDS)):
         return False
     current = data.get("current") or {}
     forecast = next((item for item in data.get("forecast", []) if item.get("pm25_predicted") is not None), None)
@@ -175,6 +170,10 @@ async def build_briefing(data: dict, settings: Settings, budget: CallBudget) -> 
     if not (settings.llm_api_key and settings.llm_model and settings.llm_provider in ("openai", "gemini")):
         return result
     if len(template) > 600:
+        return result
+    # 권고에 시설명이 있으면('산단 쪽 바람…') LLM 문장은 검증을 통과할 수 없으므로 부르지 않고,
+    # 권고 문구를 템플릿 그대로 보여 준다.
+    if any(word in template for word in BANNED_WORDS):
         return result
     if not budget.allow():
         return result
