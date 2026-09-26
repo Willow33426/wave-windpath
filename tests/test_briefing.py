@@ -88,6 +88,12 @@ class BriefingTest(unittest.TestCase):
         self.assertEqual(requests[0].headers["authorization"], "Bearer test-only")
         self.assertEqual(requests[1].headers["x-goog-api-key"], "test-only")
         self.assertEqual(json.loads(requests[0].content)["model"], "test-model")
+        gemini_body = json.loads(requests[1].content)
+        self.assertEqual(gemini_body["generationConfig"]["maxOutputTokens"], 512)
+        self.assertEqual(
+            gemini_body["generationConfig"]["thinkingConfig"]["thinkingLevel"],
+            "minimal",
+        )
 
 
 if __name__ == "__main__":
