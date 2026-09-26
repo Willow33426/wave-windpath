@@ -245,6 +245,7 @@ git pull --ff-only origin main && sh deploy/deploy.sh
   - 기상청 단기예보·초단기실황 조회서비스, 한국환경공단 에어코리아 대기오염정보 조회서비스: 공공데이터포털(data.go.kr) 오픈 API. 포털의 이용허락범위에 따라 출처를 표시합니다.
   - 모델 학습용 과거 기상: [Open-Meteo](https://open-meteo.com/) Historical Weather API (CC BY 4.0)
 - 외부 AI API: Google Gemini API(AI 브리핑 문장 생성). 예측 수치는 Gemini가 만들지 않고, 답은 검증을 통과할 때만 표시합니다.
+- 링크 미리보기 이미지 `docs/og.png`: OpenAI 이미지 생성 도구로 만든 그림입니다(#25). 실제 지형·시설을 촬영한 사진이 아닙니다.
 - 사용한 오픈소스
 
 | 이름 | 용도 | 라이선스 |
