@@ -52,7 +52,7 @@ python scripts\evaluate_model.py data\history_export\history.csv --hours 12 --sp
 
 `save_models()`와 `load_models()`로 12개 모델을 저장·불러올 수 있다. `predict(features)`는 기본 경로 `data/model.joblib`에서 모델을 찾고, 모델 파일이나 필요한 과거 관측이 없으면 `wind_rule` 또는 `persistence` 기준선으로 대체한다. 학습은 결측된 정답 행을 제외하고, 상류 관측과 기상 입력의 결측은 모델 입력에서 결측값으로 처리한다.
 
-`data/demo_model.joblib`은 로컬 동작 확인용이며 운영 모델이 아니다. 서버에는 검증된 실데이터 모델을 아직 연결하지 않았다. 실관측 이력이 충분히 쌓이면 누락값과 데이터 출처를 확인하고 실데이터로 다시 학습·평가해야 한다.
+`data/demo_model.joblib`은 로컬 동작 확인용이며 운영 모델이 아니다. 이 HGB 실험 모델은 운영 서버에 연결하지 않았다. 현재 서비스는 #21에서 채택한 90일 실측 기반 릿지 모델을 사용한다. 실관측 이력이 충분히 쌓이면 누락값과 데이터 출처를 확인하고 실데이터로 다시 학습·평가해야 한다.
 
 ## 실험 브랜치의 서버 입력 연결
 
