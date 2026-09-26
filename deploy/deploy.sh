@@ -26,6 +26,14 @@ if $CTL pid >/dev/null 2>&1; then
     $CTL update >/dev/null
     $CTL restart wave-windpath
 else
+    # 팀당 프로세스는 2개(supervisord + 앱)까지다. supervisord 없이 따로 띄워 둔 앱이
+    # 남아 있으면 프로세스가 3개가 되고 포트 3108도 겹치므로 먼저 내린다.
+    OLD=$(pgrep -u "$(id -u)" -f "python[0-9.]* .*app/main.py|uvicorn .*app.main" || true)
+    if [ -n "$OLD" ]; then
+        echo "supervisord 밖에서 실행 중인 앱을 내립니다: $OLD"
+        kill $OLD
+        sleep 3
+    fi
     .venv/bin/supervisord -c "$CONF"
 fi
 
@@ -62,3 +70,5 @@ done
 echo
 curl -sS -o /dev/null -w "시민 예보 API: HTTP %{http_code}\n" "$SITE/api/citizen/forecast?location=suncheon&hours=12"
 curl -sS -o /dev/null -w "노출 차단 확인(.git): HTTP %{http_code} (403·404면 정상)\n" "$SITE/.git/HEAD"
+echo "팀 프로세스(한도 2개, 1.2GB) — RSS는 KB:"
+ps -u "$(id -u)" -o pid=,rss=,args= | grep -E "supervisord|app/main.py" | grep -v grep || true
