@@ -92,6 +92,13 @@
         .sens::before { content: ""; width: 26px; height: 14px; border-radius: 999px; background: #3A4750; box-shadow: inset 2px 0 0 4px #3A4750, inset 12px 0 0 0 var(--soft); transition: box-shadow .15s; }
         .sens[aria-pressed="true"] { color: var(--night); background: var(--air); border-color: var(--air); }
         .sens[aria-pressed="true"]::before { background: var(--night); box-shadow: inset 12px 0 0 0 var(--night), inset 26px 0 0 0 var(--air); }
+        .notify { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 10px; margin-top: 16px; }
+        .notify-button { padding: 9px 13px; border: 1px solid rgb(124 224 211 / .42); border-radius: 10px; color: var(--night); background: var(--air); font: inherit; font-size: .82rem; font-weight: 800; cursor: pointer; }
+        .notify-button:hover { filter: brightness(1.06); }
+        .notify-button[data-active="true"] { color: var(--air); background: rgb(124 224 211 / .08); }
+        .notify-button:disabled { color: var(--muted); background: rgb(255 255 255 / .04); border-color: var(--line); cursor: default; filter: none; }
+        .notify-note { flex: 1 1 220px; margin: 0; color: var(--muted); font-size: .74rem; line-height: 1.5; }
+        .notify-status { flex-basis: 100%; margin: 0; color: var(--soft); font-size: .76rem; line-height: 1.5; }
         .meta { margin: 14px 0 0; color: var(--muted); font-size: .8rem; line-height: 1.65; }
 
         main { display: grid; gap: 14px; max-width: 560px; margin: 0 auto; padding: 6px 16px 36px; }
@@ -180,6 +187,13 @@
         // 민감군(아이·어르신·호흡기 질환) 기준은 이 기기에만 기억한다.
         let sensitive = false;
         try { sensitive = window.localStorage.getItem("wave.sensitive") === "1"; } catch (error) { sensitive = false; }
+        let latestData = null;
+        let notificationTimer = 0;
+        let notificationAt = null;
+        let notificationMessage = "";
+        const notificationWorker = "serviceWorker" in navigator
+            ? navigator.serviceWorker.register("/sw.js").then(() => navigator.serviceWorker.ready).catch(() => null)
+            : Promise.resolve(null);
 
         const esc = (value, empty = "정보 없음") => {
             const span = document.createElement("span");
@@ -197,6 +211,83 @@
         const influenceLabel = (level) => ({ low: "거의 없음", medium: "약하게 있음", high: "있음", unknown: "판단 불가" })[level] || "판단 불가";
         const num1 = (v) => v == null ? "–" : Number(v).toFixed(1);
         const num2 = (v) => v == null ? "–" : Number(v).toFixed(2);
+
+        const ventilationTarget = (data) => {
+            const now = Date.now();
+            const windows = (data?.recommendation?.ventilation?.windows || [])
+                .map((item) => ({ start: new Date(item.start).getTime(), end: new Date(item.end).getTime() }))
+                .filter((item) => Number.isFinite(item.start) && Number.isFinite(item.end) && item.end > now)
+                .sort((a, b) => a.start - b.start);
+            const current = windows.find((item) => item.start <= now && now < item.end);
+            if (current) return { at: now, label: "지금" };
+            const next = windows.find((item) => item.start > now);
+            return next ? { at: next.start, label: fmtHour(next.start) } : null;
+        };
+
+        const cancelNotification = (message = "환기 알림을 취소했어요.") => {
+            clearTimeout(notificationTimer);
+            notificationTimer = 0;
+            notificationAt = null;
+            notificationMessage = message;
+            if (latestData) renderHero(latestData.data, latestData.isDemo);
+        };
+
+        const showVentilationNotification = async () => {
+            notificationTimer = 0;
+            notificationAt = null;
+            const options = {
+                body: "지금 환기하기 좋은 시간이에요. 최신 대기질과 바람을 확인하세요.",
+                tag: "wave-ventilation",
+            };
+            try {
+                const registration = await notificationWorker;
+                if (registration) await registration.showNotification("Wave 바람길", options);
+                else new Notification("Wave 바람길", options);
+                notificationMessage = "알림을 보냈어요. 최신 정보를 다시 확인해 주세요.";
+            } catch (error) {
+                notificationMessage = "알림을 표시하지 못했어요. 브라우저 설정을 확인해 주세요.";
+            }
+            if (latestData) renderHero(latestData.data, latestData.isDemo);
+        };
+
+        const scheduleNotification = async () => {
+            if (notificationAt) return cancelNotification();
+            if (!("Notification" in window) || !window.isSecureContext) {
+                notificationMessage = "이 브라우저에서는 알림을 사용할 수 없어요.";
+                return renderHero(latestData.data, latestData.isDemo);
+            }
+            const target = ventilationTarget(latestData?.data);
+            if (!target) {
+                notificationMessage = "앞으로 12시간 안에 추천 시간이 없어요.";
+                return renderHero(latestData.data, latestData.isDemo);
+            }
+            const permission = Notification.permission === "granted"
+                ? "granted" : await Notification.requestPermission();
+            if (permission !== "granted") {
+                notificationMessage = permission === "denied"
+                    ? "브라우저 설정에서 알림을 허용해 주세요." : "알림 권한 요청을 취소했어요.";
+                return renderHero(latestData.data, latestData.isDemo);
+            }
+            if (target.at <= Date.now() + 1000) return showVentilationNotification();
+            notificationAt = target.at;
+            notificationMessage = `${target.label}에 이 페이지에서 알려드릴게요.`;
+            notificationTimer = window.setTimeout(showVentilationNotification, target.at - Date.now());
+            renderHero(latestData.data, latestData.isDemo);
+        };
+
+        const renderNotification = (data) => {
+            const target = ventilationTarget(data);
+            const supported = "Notification" in window && window.isSecureContext;
+            const active = Boolean(notificationAt);
+            const label = active ? `알림 예약됨 · ${fmtHour(notificationAt)}`
+                : target ? `${target.label === "지금" ? "지금" : target.label} 환기 알림 받기` : "추천 시간 없음";
+            const status = notificationMessage ? `<p class="notify-status" role="status">${esc(notificationMessage)}</p>` : "";
+            return `<div class="notify">
+                <button class="notify-button" type="button" data-active="${active}" ${!active && (!supported || !target) ? "disabled" : ""}>${esc(label)}</button>
+                <p class="notify-note">페이지를 열어 둔 동안 다음 환기 추천 시간이 되면 알려드려요.</p>
+                ${status}
+            </div>`;
+        };
 
         // 지도: 순천 시청 기준 실제 방위·거리(docs/api.md와 같은 값)
         const HOME = { x: 0.28, y: 0.19 };
@@ -301,6 +392,7 @@
             : `<svg class="dir ${on ? "on" : ""}" viewBox="0 0 16 16" aria-hidden="true" style="transform:rotate(${(dir + 180) % 360}deg)"><path d="M8 1.5 L12.2 8.6 H9.1 V14.5 H6.9 V8.6 H3.8 Z" fill="currentColor"/></svg>`;
 
         const renderHero = (data, isDemo) => {
+            latestData = { data, isDemo };
             const current = data.current || {};
             const reco = data.recommendation || {};
             const influence = current.industrial_influence || {};
@@ -319,6 +411,7 @@
                     <div class="stat"><small>지금 바람</small><strong>${esc(wind)}</strong></div>
                     <div class="stat"><small>산단 쪽 바람</small><strong class="${on ? "on" : ""}">${esc(influenceLabel(influence.level))}</strong></div>
                 </div>
+                ${renderNotification(data)}
                 <p class="meta">외출 · ${esc(reco.outdoor?.text)}<br>관측 ${esc(fmtWhen(data.observed_at))} 기준${influence.note ? ` · ${esc(influence.note)}` : ""}</p>`;
         };
 
@@ -502,10 +595,18 @@
         };
 
         $("#hero-body").addEventListener("click", (event) => {
-            if (!event.target.closest(".sens")) return;
-            sensitive = !sensitive;
-            try { window.localStorage.setItem("wave.sensitive", sensitive ? "1" : "0"); } catch (error) { /* 저장하지 못해도 화면은 동작한다 */ }
-            load();
+            if (event.target.closest(".notify-button")) return scheduleNotification();
+            if (event.target.closest(".sens")) {
+                if (notificationAt) {
+                    clearTimeout(notificationTimer);
+                    notificationTimer = 0;
+                    notificationAt = null;
+                    notificationMessage = "민감군 기준이 바뀌어 기존 알림을 취소했어요.";
+                }
+                sensitive = !sensitive;
+                try { window.localStorage.setItem("wave.sensitive", sensitive ? "1" : "0"); } catch (error) { /* 저장하지 못해도 화면은 동작한다 */ }
+                load();
+            }
         });
         load();
     </script>

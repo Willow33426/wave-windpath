@@ -71,6 +71,17 @@ class CitizenForecastApiTest(unittest.TestCase):
         self.assertEqual(len(prefixed.json()["forecast"]), 3)
         self.assertEqual(prefixed.json()["location"], plain.json()["location"])
 
+    def test_service_worker_is_served_from_root_without_cache(self):
+        from fastapi.testclient import TestClient
+
+        response = TestClient(self.app).get("/sw.js")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("application/javascript", response.headers["content-type"])
+        self.assertEqual(response.headers["service-worker-allowed"], "/")
+        self.assertEqual(response.headers["cache-control"], "no-cache")
+        self.assertIn("notificationclick", response.text)
+
     def test_unknown_location_returns_contract_error(self):
         from fastapi.testclient import TestClient
 
