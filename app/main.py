@@ -39,6 +39,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(mess
 logger = logging.getLogger(__name__)
 settings = load_settings()
 STATIC_INDEX = Path(__file__).with_name("static") / "index.html"
+STATIC_SERVICE_WORKER = Path(__file__).with_name("static") / "sw.js"
 
 
 @asynccontextmanager
@@ -63,6 +64,15 @@ app = FastAPI(title="Wave 바람길", version=VERSION, lifespan=lifespan)
 @app.get("/", response_class=FileResponse)
 async def index() -> FileResponse:
     return FileResponse(STATIC_INDEX, media_type="text/html; charset=utf-8")
+
+
+@app.get("/sw.js", include_in_schema=False, response_class=FileResponse)
+async def service_worker() -> FileResponse:
+    return FileResponse(
+        STATIC_SERVICE_WORKER,
+        media_type="application/javascript; charset=utf-8",
+        headers={"Service-Worker-Allowed": "/", "Cache-Control": "no-cache"},
+    )
 
 
 @app.get("/health", include_in_schema=False)
