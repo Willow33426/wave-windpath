@@ -88,10 +88,13 @@
         .grade.good { background: var(--good); } .grade.fair { background: var(--fair); } .grade.bad { background: var(--bad); }
         .grade.worst { color: #fff; background: var(--worst); } .grade.none { color: var(--text); }
         .on { color: var(--sodium); }
-        .sens { display: inline-flex; align-items: center; gap: 8px; margin: 0 0 14px; padding: 7px 12px; border: 1px solid var(--line); border-radius: 999px; color: var(--soft); background: rgb(17 26 34 / .75); font: inherit; font-size: .8rem; font-weight: 700; cursor: pointer; }
-        .sens::before { content: ""; width: 26px; height: 14px; border-radius: 999px; background: #3A4750; box-shadow: inset 2px 0 0 4px #3A4750, inset 12px 0 0 0 var(--soft); transition: box-shadow .15s; }
+        .sens { display: inline-flex; align-items: center; gap: 8px; margin: 0 0 14px; padding: 7px 12px; border: 1px solid var(--line); border-radius: 999px; color: var(--soft); background: rgb(17 26 34 / .75); font: inherit; font-size: .8rem; font-weight: 700; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: color .2s, background-color .2s, border-color .2s; }
+        .sens-switch { position: relative; flex: none; width: 28px; height: 16px; border-radius: 999px; background: #3A4750; transition: background-color .2s; }
+        .sens-switch::after { content: ""; position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; border-radius: 50%; background: var(--soft); transition: transform .2s ease, background-color .2s; }
         .sens[aria-pressed="true"] { color: var(--night); background: var(--air); border-color: var(--air); }
-        .sens[aria-pressed="true"]::before { background: var(--night); box-shadow: inset 12px 0 0 0 var(--night), inset 26px 0 0 0 var(--air); }
+        .sens[aria-pressed="true"] .sens-switch { background: var(--night); }
+        .sens[aria-pressed="true"] .sens-switch::after { transform: translateX(12px); background: var(--air); }
+        @media (prefers-reduced-motion: reduce) { .sens, .sens-switch, .sens-switch::after { transition: none; } }
         .notify { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 10px; margin-top: 16px; }
         .notify-button { padding: 9px 13px; border: 1px solid rgb(124 224 211 / .42); border-radius: 10px; color: var(--night); background: var(--air); font: inherit; font-size: .82rem; font-weight: 800; cursor: pointer; }
         .notify-button:hover { filter: brightness(1.06); }
@@ -187,6 +190,8 @@
         // 민감군(아이·어르신·호흡기 질환) 기준은 이 기기에만 기억한다.
         let sensitive = false;
         try { sensitive = window.localStorage.getItem("wave.sensitive") === "1"; } catch (error) { sensitive = false; }
+        const sensLabel = () => `민감군 기준${sensitive ? " 켜짐" : "으로 보기"}`;
+        let sensReloadTimer = 0;
         let latestData = null;
         let notificationTimer = 0;
         let notificationAt = null;
@@ -401,7 +406,7 @@
             Field.run({ dir: current.wind_direction ?? null, speed: current.wind_speed_mps ?? 0, industrial: on });
             const wind = current.wind_direction_label ? `${current.wind_direction_label}풍 ${current.wind_speed_mps ?? "–"}m/s` : "정보 없음";
             $("#hero-body").innerHTML = `
-                <button class="sens" type="button" aria-pressed="${sensitive}" title="아이·어르신·호흡기 질환이 있으면 권고를 한 단계 더 조심스럽게 보여 줘요">민감군 기준${sensitive ? " 켜짐" : "으로 보기"}</button><br>
+                <button class="sens" type="button" aria-pressed="${sensitive}" title="아이·어르신·호흡기 질환이 있으면 권고를 한 단계 더 조심스럽게 보여 줘요"><span class="sens-switch" aria-hidden="true"></span><span class="sens-label">${sensLabel()}</span></button><br>
                 ${isDemo ? '<span class="pill">산단 쪽 바람 예시 화면 · 실제 관측 아님</span>' : ""}
                 ${data.is_fallback ? '<span class="pill">최신 자료 지연 · 대체 자료 사용 중</span>' : ""}
                 <h1 class="verdict">${esc(reco.summary, "예보를 확인하세요")}</h1>
@@ -596,16 +601,24 @@
 
         $("#hero-body").addEventListener("click", (event) => {
             if (event.target.closest(".notify-button")) return scheduleNotification();
-            if (event.target.closest(".sens")) {
+            const sensButton = event.target.closest(".sens");
+            if (sensButton) {
                 if (notificationAt) {
                     clearTimeout(notificationTimer);
                     notificationTimer = 0;
                     notificationAt = null;
                     notificationMessage = "민감군 기준이 바뀌어 기존 알림을 취소했어요.";
+                } else {
+                    notificationMessage = "";
                 }
                 sensitive = !sensitive;
                 try { window.localStorage.setItem("wave.sensitive", sensitive ? "1" : "0"); } catch (error) { /* 저장하지 못해도 화면은 동작한다 */ }
-                load();
+                // 첫 화면을 다시 그리면 버튼이 새로 만들어져 전환 효과가 사라진다.
+                // 지금 버튼부터 바꿔 스위치가 움직이는 걸 보여 주고, 움직임이 끝난 뒤 다시 불러온다.
+                sensButton.setAttribute("aria-pressed", String(sensitive));
+                sensButton.querySelector(".sens-label").textContent = sensLabel();
+                clearTimeout(sensReloadTimer);
+                sensReloadTimer = window.setTimeout(load, 220);
             }
         });
         load();
