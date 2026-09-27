@@ -1,6 +1,6 @@
 #!/bin/sh
 # 서버의 프로젝트 루트(/home/a8/html)에서 실행한다.
-#   최신 main 반영 → 의존성 설치 → 앱 재시작 → 첫 화면 교체 → 웹 루트 노출 차단 → 상태 확인
+#   최신 main 반영 → 의존성 설치 → 앱 재시작 → 정적 파일 교체 → 웹 루트 노출 차단 → 상태 확인
 # 사용법: cd /home/a8/html && git pull --ff-only origin main && sh deploy/deploy.sh
 set -eu
 
@@ -42,11 +42,12 @@ BOOT="@reboot cd $ROOT && $ROOT/.venv/bin/supervisord -c $ROOT/$CONF >> $ROOT/de
 ( crontab -l 2>/dev/null | grep -v "deploy/supervisord.conf"; echo "$BOOT" ) | crontab - \
     || echo "crontab 등록 실패: README '재부팅 후 자동 실행'을 따라 직접 추가하세요."
 
-echo "[4/5] 첫 화면 교체와 웹 루트 노출 차단"
-# Nginx가 이 폴더를 그대로 공개한다. 첫 화면(index.html)만 루트에 두고
+echo "[4/5] 정적 파일 교체와 웹 루트 노출 차단"
+# Nginx가 이 폴더를 그대로 공개한다. 첫 화면과 서비스 워커만 루트에 두고
 # 코드·DB·가상환경·.git은 팀 계정만 읽을 수 있게 막는다.
 cp app/static/index.html index.html
-chmod 644 index.html
+cp app/static/sw.js sw.js
+chmod 644 index.html sw.js
 for d in .git .venv app data deploy docs scripts tests; do
     if [ -e "$d" ]; then
         chmod 700 "$d"
@@ -69,6 +70,7 @@ until curl -fsS "$SITE/api/health"; do
 done
 echo
 curl -sS -o /dev/null -w "시민 예보 API: HTTP %{http_code}\n" "$SITE/api/citizen/forecast?location=suncheon&hours=12"
+curl -sS -o /dev/null -w "서비스 워커: HTTP %{http_code}\n" "$SITE/sw.js"
 curl -sS -o /dev/null -w "노출 차단 확인(.git): HTTP %{http_code} (403·404면 정상)\n" "$SITE/.git/HEAD"
 echo "팀 프로세스(한도 2개, 1.2GB) — RSS는 KB:"
 ps -u "$(id -u)" -o pid=,rss=,args= | grep -E "supervisord|app/main.py" | grep -v grep || true
