@@ -189,6 +189,7 @@
         // 민감군(아이·어르신·호흡기 질환) 기준은 이 기기에만 기억한다.
         let sensitive = false;
         try { sensitive = window.localStorage.getItem("wave.sensitive") === "1"; } catch (error) { sensitive = false; }
+        let sensReloadTimer = 0;
         let latestData = null;
         let notificationTimer = 0;
         let notificationAt = null;
@@ -403,7 +404,7 @@
             Field.run({ dir: current.wind_direction ?? null, speed: current.wind_speed_mps ?? 0, industrial: on });
             const wind = current.wind_direction_label ? `${current.wind_direction_label}풍 ${current.wind_speed_mps ?? "–"}m/s` : "정보 없음";
             $("#hero-body").innerHTML = `
-                <button class="sens" type="button" aria-pressed="${sensitive}" title="아이·어르신·호흡기 질환이 있으면 권고를 한 단계 더 조심스럽게 보여 줘요"><span class="sens-track" aria-hidden="true"></span><span>민감군 기준${sensitive ? " 켜짐" : "으로 보기"}</span></button><br>
+                <button class="sens" type="button" aria-pressed="${sensitive}" title="아이·어르신·호흡기 질환이 있으면 권고를 한 단계 더 조심스럽게 보여 줘요"><span class="sens-track" aria-hidden="true"></span><span class="sens-label">민감군 기준${sensitive ? " 켜짐" : "으로 보기"}</span></button><br>
                 ${isDemo ? '<span class="pill">산단 쪽 바람 예시 화면 · 실제 관측 아님</span>' : ""}
                 ${data.is_fallback ? '<span class="pill">최신 자료 지연 · 대체 자료 사용 중</span>' : ""}
                 <h1 class="verdict">${esc(reco.summary, "예보를 확인하세요")}</h1>
@@ -598,16 +599,23 @@
 
         $("#hero-body").addEventListener("click", (event) => {
             if (event.target.closest(".notify-button")) return scheduleNotification();
-            if (event.target.closest(".sens")) {
+            const sensButton = event.target.closest(".sens");
+            if (sensButton) {
                 if (notificationAt) {
                     clearTimeout(notificationTimer);
                     notificationTimer = 0;
                     notificationAt = null;
                     notificationMessage = "민감군 기준이 바뀌어 기존 알림을 취소했어요.";
+                } else {
+                    notificationMessage = "";
                 }
                 sensitive = !sensitive;
                 try { window.localStorage.setItem("wave.sensitive", sensitive ? "1" : "0"); } catch (error) { /* 저장하지 못해도 화면은 동작한다 */ }
-                load();
+                // 다시 그리면 버튼이 새로 만들어져 전환 효과가 사라지므로, 지금 버튼부터 바꾸고 움직임이 끝난 뒤 불러온다.
+                sensButton.setAttribute("aria-pressed", String(sensitive));
+                sensButton.querySelector(".sens-label").textContent = `민감군 기준${sensitive ? " 켜짐" : "으로 보기"}`;
+                clearTimeout(sensReloadTimer);
+                sensReloadTimer = window.setTimeout(load, 220);
             }
         });
         load();
